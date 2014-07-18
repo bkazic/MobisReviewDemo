@@ -1,30 +1,51 @@
 var analytics = require('analytics.js');
 
-// Import modules
-var Utils = {};
-Utils.Data = require('Utils/importData.js');
-Utils.Stores = require('Utils/defineStores.js');
-Utils.Stat = require('Utils/stat.js');
-Utils.Baseline = require('Utils/baselinePredictors.js');
+// Import modules from lib
+var Service = {}; Service.Mobis = {}; Service.Mobis.Utils = {};
+Service.Mobis.Loop = require('Service/Mobis/Loop/preproc.js');
+Service.Mobis.Utils.Data = require('Service/Mobis/Utils/importData.js');
+Service.Mobis.Utils.Stores = require('Service/Mobis/Utils/defineStores.js');
+Service.Mobis.Utils.Stat = require('Service/Mobis/Utils/stat.js');
+Service.Mobis.Utils.Baseline = require('Service/Mobis/Utils/baselinePredictors.js');
 
 // Create instances for Mean Absolute Error
-var speedLimitMAE = Utils.Stat.newMeanAbsoluteError();
-var avrValMAE = Utils.Stat.newMeanAbsoluteError();
-var prevValMAE = Utils.Stat.newMeanAbsoluteError();
-var linregMAE = Utils.Stat.newMeanAbsoluteError();
-var ridgeRegMAE = Utils.Stat.newMeanAbsoluteError();
-var svmrMAE = Utils.Stat.newMeanAbsoluteError();
-var nnMAE = Utils.Stat.newMeanAbsoluteError();
-var knnMAE = Utils.Stat.newMeanAbsoluteError();
+var speedLimitMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var avrValMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var prevValMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var linregMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var ridgeRegMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var svmrMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var nnMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var knnMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var avr = Service.Mobis.Utils.Baseline.newAvrVal();
 
 // Loads stores and import data
-Utils.Stores.defineStores();
+Service.Mobis.Utils.Stores.defineStores();
 var CounterNode = qm.store("CounterNode");
 var trafficLoadStore = qm.store('trafficLoadStore');
 var trafficStore = qm.store('trafficStore');
+var trafficStoreNoDuplicates = qm.store('trafficStoreNoDuplicates');
 var weatherLoadStore = qm.store('weatherLoadStore');
 var weatherStore = qm.store('weatherStore');
 var resampledStore = qm.store('resampledStore');
+
+// Replaces incorect speed values, with avr value
+trafficStore.addTrigger({
+    onAdd: Service.Mobis.Loop.makeCleanSpeedNoCars(avr)
+});
+
+// Calls function that adds field DateTime in String format that is set to primary (unique)
+trafficStore.addTrigger({
+    //onAdd: Service.Mobis.Loop.addPrimaryField(trafficStoreNoDuplicates)
+    onAdd: Service.Mobis.Loop.markAsDuplicate()
+});
+
+var streamInterval = 5 * 60; // timestamp specified in seconds
+trafficStore.addTrigger({
+    onAdd: Service.Mobis.Loop.replaceMissingVals(streamInterval, 1, "hour")
+});
+
+
 
 qm.addStreamAggr({
     type: 'stmerger',
@@ -77,7 +98,7 @@ var features = [
 var ftrSpace = analytics.newFeatureSpace(features);
 
 // Initialize analytics
-var avr = Utils.Baseline.newAvrVal();
+//var avr = Service.Mobis.Utils.Baseline.newAvrVal();
 var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact": 0.98, "regFact": 10000 });
 var ridgeRegression = new analytics.ridgeRegression(10000, ftrSpace.dim);
 //var svmr = Utils.Svmr.newSvmRegression(features, resampledStore.field("Target"), 100, { "c": 2.0, "eps": 1.0 });
@@ -91,9 +112,10 @@ resampledStore.addTrigger({
         rec.Ema1 = resampledStore.getStreamAggr("Ema1").EMA;
         rec.Ema2 = resampledStore.getStreamAggr("Ema2").EMA;
 
-        console.log("\nRec for time: " + rec.DateTime.string);
-        ftrSpace.ftrVec(rec).print()
-        console.start()
+        //console.log("\nRec for time: " + rec.DateTime.string);
+        //ftrSpace.ftrVec(rec).print()
+        //console.startx(function (x) { return eval(x); })
+        //console.start()
 
         // Predict and add to rec
         rec.SpeedLimit = 50;
@@ -169,10 +191,10 @@ resampledStore.addTrigger({
 // Imports data from loadstores according to timestamp
 var loadStores = [trafficLoadStore, weatherLoadStore];
 var targetStores = [trafficStore, weatherStore];
-Utils.Data.importData(loadStores, targetStores);
+Service.Mobis.Utils.Data.importData(loadStores, targetStores);
 
 // DEBUGGING
-console.start()
+//console.start()
 
 
 // ONLINE SERVICES

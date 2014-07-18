@@ -1,3 +1,3 @@
-qm start -noserver
-
+REM qm start -noserver
+qm start
 
