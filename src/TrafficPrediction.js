@@ -2,11 +2,14 @@ var analytics = require('analytics.js');
 
 // Import modules from lib
 var Service = {}; Service.Mobis = {}; Service.Mobis.Utils = {};
-Service.Mobis.Loop = require('Service/Mobis/Loop/preproc.js');
+Service.Mobis.Loop = require('Service/Mobis/Loop/preprocLoop.js');
+Service.Mobis.Weather = require('Service/Mobis/Weather/preprocWeather.js');
 Service.Mobis.Utils.Data = require('Service/Mobis/Utils/importData.js');
 Service.Mobis.Utils.Stores = require('Service/Mobis/Utils/defineStores.js');
 Service.Mobis.Utils.Stat = require('Service/Mobis/Utils/stat.js');
 Service.Mobis.Utils.Baseline = require('Service/Mobis/Utils/baselinePredictors.js');
+Service.Mobis.Utils.Ftr = require('Service/Mobis/Utils/specialDays.js');
+Service.Mobis.Utils.HistVals = require('Service/Mobis/Utils/histVals.js');
 
 // Create instances for Mean Absolute Error
 var speedLimitMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
@@ -18,52 +21,106 @@ var svmrMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
 var nnMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
 var knnMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
 var avr = Service.Mobis.Utils.Baseline.newAvrVal();
+var histVals = Service.Mobis.Utils.HistVals.newHistoricalVals(5);
 
 // Loads stores and import data
 Service.Mobis.Utils.Stores.defineStores();
 var CounterNode = qm.store("CounterNode");
 var trafficLoadStore = qm.store('trafficLoadStore');
 var trafficStore = qm.store('trafficStore');
+var trafficStore2 = qm.store('trafficStore2');
 var trafficStoreNoDuplicates = qm.store('trafficStoreNoDuplicates');
 var weatherLoadStore = qm.store('weatherLoadStore');
 var weatherStore = qm.store('weatherStore');
+var mergedStore = qm.store('mergedStore');
 var resampledStore = qm.store('resampledStore');
 
+// Constructor for special days feature extractor
+var slovenianHolidayFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("Slovenian_holidays");
+var fullMoonFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("Full_moon");
+
+
+///////////////////// PREPROCESSING FOR TRAFFIC DATA SOURCE /////////////////////
 // Replaces incorect speed values, with avr value
-trafficStore.addTrigger({
+trafficStore.addStreamAggr({
+    name: "makeCleanSpeedNoCars",
     onAdd: Service.Mobis.Loop.makeCleanSpeedNoCars(avr)
 });
 
 // Calls function that adds field DateTime in String format that is set to primary (unique)
-trafficStore.addTrigger({
+trafficStore.addStreamAggr({
+    name: "markAsDuplicate",
     //onAdd: Service.Mobis.Loop.addPrimaryField(trafficStoreNoDuplicates)
     onAdd: Service.Mobis.Loop.markAsDuplicate()
 });
 
 var streamInterval = 5 * 60; // timestamp specified in seconds
-trafficStore.addTrigger({
+trafficStore.addStreamAggr({
+    name: "replaceMissingVals",
     onAdd: Service.Mobis.Loop.replaceMissingVals(streamInterval, 1, "hour")
 });
 
 
+/////////////////////////// PREPROCESSING FOR WEATHER ///////////////////////////
+weatherStore.addStreamAggr({
+    name: "discretizeIcon",
+    onAdd: Service.Mobis.Weather.discretizeIcon()
+    //onAdd: Service.Mobis.Weather.discretizeIconToVec()
+});
 
+
+/////////////////////////// PREPROCESSING FOR EVENTS ///////////////////////////
+//weatherStore.addStreamAggr({
+//    name: "discretizeIcon",
+//    onAdd: Service.Mobis.Weather.discretizeIcon()
+//});
+
+///////////////////////// MERGING DIFFERENT DATA SOURCES /////////////////////////
+// This merger aggregator creates new merged store
 qm.addStreamAggr({
-    type: 'stmerger',
-    name: 'merged',
-    outStore: 'resampledStore',
-    createStore: false,
+    type: 'stmerger', name: 'merged',
+    outStore: 'mergedStore', createStore: false,
     timestamp: 'DateTime',
-    mergingMapV: [
-        { inStore: 'trafficStore', inField: 'NumOfCars', outField: 'NumOfCars', interpolation: 'linear' },
-        { inStore: 'trafficStore', inField: 'Gap', outField: 'Gap', interpolation: 'linear' },
-        { inStore: 'trafficStore', inField: 'Occupancy', outField: 'Occupancy', interpolation: 'linear' },
-        { inStore: 'trafficStore', inField: 'Speed', outField: 'Speed', interpolation: 'linear' },
-        { inStore: 'trafficStore', inField: 'TrafficStatus', outField: 'TrafficStatus', interpolation: 'linear' },
-        { inStore: 'weatherStore', inField: 'temperature', outField: 'temperature', interpolation: 'linear' },
-        { inStore: 'weatherStore', inField: 'visibility', outField: 'visibility', interpolation: 'linear' },
+    fields: [
+        { source: 'trafficStore', inField: 'NumOfCars', outField: 'NumOfCars', interpolation: 'linear', timestamp: 'DateTime'},
+        { source: 'trafficStore', inField: 'Gap', outField: 'Gap', interpolation: 'linear', timestamp: 'DateTime' },
+        { source: 'trafficStore', inField: 'Occupancy', outField: 'Occupancy', interpolation: 'linear', timestamp: 'DateTime' },
+        { source: 'trafficStore', inField: 'Speed', outField: 'Speed', interpolation: 'linear', timestamp: 'DateTime' },
+        //{ source: { store: 'trafficStore', join: 'measuredBy' }, inField: 'MaxSpeed', outField: 'Speed', interpolation: 'linear', timestamp: 'DateTime' },
+        { source: 'trafficStore', inField: 'TrafficStatus', outField: 'TrafficStatus', interpolation: 'linear', timestamp: 'DateTime' },
+        { source: 'weatherStore', inField: 'temperature', outField: 'temperature', interpolation: 'linear', timestamp: 'time' },
+        { source: 'weatherStore', inField: 'visibility', outField: 'visibility', interpolation: 'linear', timestamp: 'time' },
+        { source: 'weatherStore', inField: 'icon', outField: 'visibility', interpolation: 'previous', timestamp: 'time' },
+        { source: 'weatherStore', inField: 'clearDay', outField: 'clearDay', interpolation: 'previous', timestamp: 'time' },
+        { source: 'weatherStore', inField: 'clearNight', outField: 'clearNight', interpolation: 'previous', timestamp: 'time' },
+        { source: 'weatherStore', inField: 'rain', outField: 'rain', interpolation: 'previous', timestamp: 'time' },
+        { source: 'weatherStore', inField: 'snow', outField: 'snow', interpolation: 'previous', timestamp: 'time' },
+        { source: 'weatherStore', inField: 'sleet', outField: 'sleet', interpolation: 'previous', timestamp: 'time' },
+        { source: 'weatherStore', inField: 'wind', outField: 'wind', interpolation: 'previous', timestamp: 'time' },
+        { source: 'weatherStore', inField: 'fog', outField: 'fog', interpolation: 'previous', timestamp: 'time' },
+        { source: 'weatherStore', inField: 'cloudy', outField: 'cloudy', interpolation: 'previous', timestamp: 'time' },
+        { source: 'weatherStore', inField: 'partlyCloudyDay', outField: 'partlyCloudyDay', interpolation: 'previous', timestamp: 'time' },
+        { source: 'weatherStore', inField: 'parltlyCloudyNight', outField: 'parltlyCloudyNight', interpolation: 'previous', timestamp: 'time' }
     ]
 });
 
+//////////////////////////// RESAMPLING MERGED STORE ////////////////////////////
+// This resample aggregator creates new resampled store
+var resampleInterval = 10 * 60 * 1000;
+mergedStore.addStreamAggr({
+    name: "Resampled", type: "resampler",
+    outStore: resampledStore.name, timestamp: "DateTime",
+    fields: [{ name: "NumOfCars", interpolator: "linear" },
+             { name: "Gap", interpolator: "linear" },
+             { name: "Occupancy", interpolator: "linear" },
+             { name: "Speed", interpolator: "linear" },
+             { name: "TrafficStatus", interpolator: "linear" },
+             { name: "temperature", interpolator: "linear" },
+             { name: "visibility", interpolator: "linear" }],
+    createStore: false, interval: resampleInterval
+});
+
+//////////////////////////////// MORE AGREGATES //////////////////////////////////
 // insert testStoreResampled store aggregates
 resampledStore.addStreamAggr({
     name: "tick", type: "timeSeriesTick",
@@ -81,8 +138,13 @@ resampledStore.addStreamAggr({
 // Buffer defines for how many records infront prediction will be learned
 resampledStore.addStreamAggr({ name: "delay", type: "recordBuffer", size: 7 });
 
+////////////////////////////// DEFINING FEATURE SPACE //////////////////////////////
 // define features
 var features = [
+    { type: "constant", source: resampledStore.name, val: 1 },
+    { type: "jsfunc", source: resampledStore.name, name: "slovanianHolidays", dim: 1, fun: slovenianHolidayFtr.getFtr },
+    { type: "jsfunc", source: resampledStore.name, name: "foolMoon", dim: 1, fun: fullMoonFtr.getFtr },
+    { type: "jsfunc", source: resampledStore.name, name: "historicalValues", dim: histVals.getSize(), fun: histVals.getVals },
     { type: "numeric", source: resampledStore.name, field: "Speed", normalize: false },
     { type: "numeric", source: resampledStore.name, field: "Ema1", normalize: false },
     { type: "numeric", source: resampledStore.name, field: "Ema2", normalize: false },
@@ -97,6 +159,8 @@ var features = [
 // Feature extractors for feature space
 var ftrSpace = analytics.newFeatureSpace(features);
 
+
+///////////////// INITIALIZING ANALYTIC ALGORITHMS FOR PREDICTION //////////////////
 // Initialize analytics
 //var avr = Service.Mobis.Utils.Baseline.newAvrVal();
 var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact": 0.98, "regFact": 10000 });
@@ -105,7 +169,7 @@ var ridgeRegression = new analytics.ridgeRegression(10000, ftrSpace.dim);
 var NN = analytics.newNN({ "layout": [ftrSpace.dim, 4, 1], "tFuncHidden": "sigmoid", "tFuncOut": "linear", "learnRate": 0.2, "momentum": 0.2 });
 var knn = analytics.newKNearestNeighbors(2, 100, 1);
 
-
+//////////////////////////// PREDICTION AND EVALUATION ////////////////////////////
 resampledStore.addTrigger({
     onAdd: function (rec) {
         // Adds ema-s to rec
@@ -117,6 +181,7 @@ resampledStore.addTrigger({
         //console.startx(function (x) { return eval(x); })
         //console.start()
 
+        histVals.update(rec.Speed);
         // Predict and add to rec
         rec.SpeedLimit = 50;
         rec.PrevValPred = rec.Speed;
@@ -194,10 +259,11 @@ var targetStores = [trafficStore, weatherStore];
 Service.Mobis.Utils.Data.importData(loadStores, targetStores);
 
 // DEBUGGING
-//console.start()
+console.start()
 
 
-// ONLINE SERVICES
+//////////////////////////// ONLINE (REST) SERVICES ////////////////////////////
+// Query records
 http.onGet("query", function (req, resp) {
     jsonData = JSON.parse(req.args.data);
     console.say("" + JSON.stringify(jsonData));

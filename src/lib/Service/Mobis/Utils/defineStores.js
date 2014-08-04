@@ -31,6 +31,7 @@ exports.defineStores = function () {
     // Creating Store for measurements
     createTrafficStore("trafficLoadStore");
     createTrafficStore("trafficStore", [{ "name": "Replaced", "type": "bool", "null": true, "default": false }]);
+    createTrafficStore("trafficStore2", [{ "name": "Replaced", "type": "bool", "null": true, "default": false }]);
     createTrafficStore("trafficStoreNoDuplicates", [{ "name": "StringDateTime", "type": "string", "primary": true }]);
 
 
@@ -62,8 +63,19 @@ exports.defineStores = function () {
     };
     // create weather store
     createWeatherStore("weatherLoadStore");
-    createWeatherStore("weatherStore");
-    //createWeatherStore("weatherStore", [{ "name": "StringDateTime", "type": "string", "primary": true }]);
+    createWeatherStore("weatherStore", [
+                   { "name": "iconDiscretized", "type": "float_v", "null": true },
+                   { "name": "clearDay", "type": "float", "null": true },
+                   { "name": "clearNight", "type": "float", "null": true },
+                   { "name": "rain", "type": "float", "null": true },
+                   { "name": "snow", "type": "float", "null": true },
+                   { "name": "sleet", "type": "float", "null": true },
+                   { "name": "wind", "type": "float", "null": true },
+                   { "name": "fog", "type": "float", "null": true },
+                   { "name": "cloudy", "type": "float", "null": true },
+                   { "name": "partlyCloudyDay", "type": "float", "null": true },
+                   { "name": "parltlyCloudyNight", "type": "float", "null": true }
+    ]);
 
     // Load measurements from file to store
     //var weatherLoadStore = qm.store('weatherLoadStore');
@@ -71,12 +83,45 @@ exports.defineStores = function () {
     var filename_measurements = "./sandbox/" + scriptNm + "/weatherLog.txt";
     qm.load.jsonFile(qm.store('weatherLoadStore'), filename_measurements);
 
-    // Define extra fields
+    // Define merged store
+    createTrafficStore("mergedStore", [
+                { "name": "summary", "type": "string", "null": true },
+                { "name": "icon", "type": "string", "null": true },
+                { "name": "temperature", "type": "float", "null": true },
+                { "name": "visibility", "type": "float", "null": true },
+
+                { "name": "iconDiscretized", "type": "int_v", "null": true },
+                { "name": "clearDay", "type": "float", "null": true },
+                { "name": "clearNight", "type": "float", "null": true },
+                { "name": "rain", "type": "float", "null": true },
+                { "name": "snow", "type": "float", "null": true },
+                { "name": "sleet", "type": "float", "null": true },
+                { "name": "wind", "type": "float", "null": true },
+                { "name": "fog", "type": "float", "null": true },
+                { "name": "cloudy", "type": "float", "null": true },
+                { "name": "partlyCloudyDay", "type": "float", "null": true },
+                { "name": "parltlyCloudyNight", "type": "float", "null": true }
+    ]);
+
+
+    // Define extra fields for resampled store
     var extraFields = [
                 { "name": "summary", "type": "string", "null": true },
                 { "name": "icon", "type": "string", "null": true },
                 { "name": "temperature", "type": "float", "null": true },
                 { "name": "visibility", "type": "float", "null": true },
+
+                { "name": "iconDiscretized", "type": "int_v", "null": true },
+                { "name": "clearDay", "type": "float", "null": true },
+                { "name": "clearNight", "type": "float", "null": true },
+                { "name": "rain", "type": "float", "null": true },
+                { "name": "snow", "type": "float", "null": true },
+                { "name": "sleet", "type": "float", "null": true },
+                { "name": "wind", "type": "float", "null": true },
+                { "name": "fog", "type": "float", "null": true },
+                { "name": "cloudy", "type": "float", "null": true },
+                { "name": "partlyCloudyDay", "type": "float", "null": true },
+                { "name": "parltlyCloudyNight", "type": "float", "null": true },
 
                 { "name": "Target", "type": "float", "null": true, "default": 0.0 },
                 { "name": "Ema1", "type": "float", "null": true },
@@ -100,6 +145,7 @@ exports.defineStores = function () {
                 { "name": "NNPredMAE", "type": "float", "null": true },
                 { "name": "KNNPredMAE", "type": "float", "null": true },
     ]
+
     createTrafficStore("resampledStore", extraFields);
     //var resampledStore = qm.store('resampledStore');
 }

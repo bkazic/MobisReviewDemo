@@ -15,13 +15,39 @@ exports.addPrimaryField = function (outStore) {
 
 
 // If there is no cars, set speed to speed limit
-exports.makeCleanSpeedNoCars = function (replaceObj) {
+//exports.makeCleanSpeedNoCars = function (replaceObj) {
+//    var replace = replaceObj;
+//    var cleanSpeedNoCars = function (rec) {
+//        if (rec.NumOfCars === 0) {
+//            //speed = rec.measuredBy.MaxSpeed;
+//            rec["Speed"] = replace.getAvr();
+//            rec["TrafficStatus"] = 1;
+//        }
+//    }
+//    return cleanSpeedNoCars;
+//};
+
+// If there is no cars, set speed to speed limit
+exports.makeCleanSpeedNoCars = function (replaceObj, outStore) {
     var replace = replaceObj;
     var cleanSpeedNoCars = function (rec) {
         if (rec.NumOfCars === 0) {
-            //speed = rec.measuredBy.MaxSpeed;
-            rec["Speed"] = replace.getAvr();
-            rec["TrafficStatus"] = 1;
+            var store = rec.$store;
+            //speed = rec.measuredBy.MaxSpeed;           
+            var val = rec.toJSON(true);
+            if (outStore != null) {
+                store = outStore;
+                delete val.$id;
+            }
+            val["Speed"] = replace.getAvr();
+            val["TrafficStatus"] = 1;
+            store.add(val);
+        } else {
+            if (outStore != null) {
+                var val = rec.toJSON(true);
+                delete val.$id;
+                outStore.add(val);
+            }
         }
     }
     return cleanSpeedNoCars;
@@ -43,6 +69,7 @@ exports.markAsDuplicate = function () {
 exports.replaceMissingVals = function (addInterval, valsBack, unit) {
     var interval = addInterval;
     replaceVal = function (rec) {
+        // only for records marked as "replaced"
         if (rec["Replaced"]) {
             var prevValIdx = rec.$id - 1;
             if (prevValIdx < 0) return;
@@ -50,7 +77,6 @@ exports.replaceMissingVals = function (addInterval, valsBack, unit) {
             var rs = store.recs;
             var currTime = store[prevValIdx].DateTime.add(interval).string;
             // if parameters are not initialized target val will be prev val
-
             var targetVal = store[prevValIdx].toJSON(true);
             if (valsBack && unit) { // checks if parameters are initialized
                 var targetTime = tm.parse(currTime);
@@ -61,7 +87,7 @@ exports.replaceMissingVals = function (addInterval, valsBack, unit) {
                     targetVal = targetRec.toJSON(true);
                 }
             }
-
+            // replace rec with target rec
             targetVal["$id"] = rec.$id;
             targetVal["DateTime"] = currTime;
             targetVal["Replaced"] = true;
