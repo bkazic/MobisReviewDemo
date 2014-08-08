@@ -67,7 +67,7 @@ exports.importData = function (inStores, outStores) {
         //val.StringDateTime = rec[dateTimeFields[lowestRecIdx]].string; //have to add string version because, string fields can be uniqe. Thisway I delete duplicates.
         targetStores[lowestRecIdx].add(val);
 
-        //console.log("\nResampled store: " + JSON.stringify(resampledStore.recs[resampledStore.length - 1]));
+        //console.log("\nLast resampled rec: " + JSON.stringify(resampledStore.last));
 
         currRecIdxs[lowestRecIdx]++
 

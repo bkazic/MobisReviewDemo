@@ -11,7 +11,7 @@ exports.defineStores = function () {
         storeDef = [{
             "name": storeName,
             "fields": [
-                    { "name": "DateTime", "type": "datetime" },
+                    { "name": "DateTime", "type": "datetime", primary: true },
                     { "name": "NumOfCars", "type": "float", "null": true },
                     { "name": "Gap", "type": "float", "null": true },
                     { "name": "Occupancy", "type": "float", "null": true },
@@ -30,14 +30,17 @@ exports.defineStores = function () {
 
     // Creating Store for measurements
     createTrafficStore("trafficLoadStore");
+    createTrafficStore("trafficRawStore");
     createTrafficStore("trafficStore", [{ "name": "Replaced", "type": "bool", "null": true, "default": false }]);
-    createTrafficStore("trafficStore2", [{ "name": "Replaced", "type": "bool", "null": true, "default": false }]);
-    createTrafficStore("trafficStoreNoDuplicates", [{ "name": "StringDateTime", "type": "string", "primary": true }]);
+    //createTrafficStore("trafficStore2", [{ "name": "Replaced", "type": "bool", "null": true, "default": false }]);
+    //createTrafficStore("trafficStoreNoDuplicates", [{ "name": "StringDateTime", "type": "string", "primary": true }]);
 
 
     // Load measurements from file to store
-    var filename_measurements = "./sandbox/" + scriptNm + "/oneday_measurements_0016_21.txt";
+    //var filename_measurements = "./sandbox/" + scriptNm + "/oneday_measurements_0016_21.txt";
     //var filename_measurements = "./sandbox/" + scriptNm + "/onemonth_measurements_0016_21.txt";
+    //var filename_measurements = "./sandbox/" + scriptNm + "/measurements_0180_11.txt";
+    var filename_measurements = "./sandbox/" + scriptNm + "/measurements_0178_11.txt";
     qm.load.jsonFile(qm.store('trafficLoadStore'), filename_measurements);
 
     // Define measurement store definition as a function so that it can be used several times 
