@@ -1,9 +1,11 @@
 var analytics = require('analytics.js');
+var evaluation = require('evaluation.js')
 
 // Import modules from lib
 var Service = {}; Service.Mobis = {}; Service.Mobis.Utils = {};
 Service.Mobis.Loop = require('Service/Mobis/Loop/preprocLoop.js');
 Service.Mobis.Weather = require('Service/Mobis/Weather/preprocWeather.js');
+Service.Mobis.Events = require('Service/Mobis/Events/preprocEvents.js');
 Service.Mobis.Utils.Data = require('Service/Mobis/Utils/importData.js');
 Service.Mobis.Utils.Stores = require('Service/Mobis/Utils/defineStores.js');
 Service.Mobis.Utils.Stat = require('Service/Mobis/Utils/stat.js');
@@ -13,7 +15,8 @@ Service.Mobis.Utils.HistVals = require('Service/Mobis/Utils/histVals.js');
 Service.Mobis.Utils.OnlineSVMR = require('Service/Mobis/Utils/svmRegression.js');
 
 // Create instances for Mean Absolute Error
-var speedLimitMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var speedLimitMAE = evaluation.newMeanAbsoluteError();
+//var speedLimitMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
 var avrValMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
 var prevValMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
 var linregMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
@@ -35,6 +38,10 @@ var weatherLoadStore = qm.store('weatherLoadStore');
 var weatherStore = qm.store('weatherStore');
 var mergedStore = qm.store('mergedStore');
 var resampledStore = qm.store('resampledStore');
+var eventLoadStore = qm.store("eventLoadStore");
+var eventStore = qm.store("eventStore");
+var eventLogsLoadStore = qm.store("eventLogsLoadStore");
+var eventLogsStore = qm.store("eventLogsStore");
 
 // Constructor for special days feature extractor
 var slovenianHolidayFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("Slovenian_holidays");
@@ -75,11 +82,17 @@ weatherStore.addStreamAggr({
 
 
 /////////////////////////// PREPROCESSING FOR EVENTS ///////////////////////////
-//weatherStore.addStreamAggr({
-//    name: "discretizeIcon",
-//    onAdd: Service.Mobis.Weather.discretizeIcon(),
-//    saveJson: function () { }
-//});
+eventStore.addStreamAggr({
+    name: "roadPriorotyToFlt",
+    onAdd: Service.Mobis.Events.makeRadPriorotyToFloat(),
+    saveJson: function () { }
+});
+
+eventStore.addStreamAggr({
+    name: "categorizeEventCause",
+    onAdd: Service.Mobis.Events.makeEventCauseCategorization(),
+    saveJson: function () { }
+});
 
 ///////////////////////// MERGING DIFFERENT DATA SOURCES /////////////////////////
 // This merger aggregator creates new merged store
@@ -106,7 +119,18 @@ qm.newStreamAggr({
         { source: 'weatherStore', inField: 'fog', outField: 'fog', interpolation: 'previous', timestamp: 'time' },
         { source: 'weatherStore', inField: 'cloudy', outField: 'cloudy', interpolation: 'previous', timestamp: 'time' },
         { source: 'weatherStore', inField: 'partlyCloudyDay', outField: 'partlyCloudyDay', interpolation: 'previous', timestamp: 'time' },
-        { source: 'weatherStore', inField: 'parltlyCloudyNight', outField: 'parltlyCloudyNight', interpolation: 'previous', timestamp: 'time' }
+        { source: 'weatherStore', inField: 'parltlyCloudyNight', outField: 'parltlyCloudyNight', interpolation: 'previous', timestamp: 'time' },
+        { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'Priority', outField: 'Priority', interpolation: 'previous', timestamp: 'EsperTime' },
+        { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'RoadPriorityFlt', outField: 'RoadPriorityFlt', interpolation: 'previous', timestamp: 'EsperTime' },
+        { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'TrafficJam', outField: 'TrafficJam', interpolation: 'previous', timestamp: 'EsperTime' },
+        { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'RoadClosure', outField: 'RoadClosure', interpolation: 'previous', timestamp: 'EsperTime' },
+        { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'TrafficAccident', outField: 'TrafficAccident', interpolation: 'previous', timestamp: 'EsperTime' },
+        { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'OtherEvents', outField: 'OtherEvents', interpolation: 'previous', timestamp: 'EsperTime' },
+        { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'Ice', outField: 'Ice', interpolation: 'previous', timestamp: 'EsperTime' },
+        { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'Roadworks', outField: 'Roadworks', interpolation: 'previous', timestamp: 'EsperTime' },
+        { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'Wind', outField: 'Wind', interpolation: 'previous', timestamp: 'EsperTime' },
+        { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'NoFreightTraffic', outField: 'NoFreightTraffic', interpolation: 'previous', timestamp: 'EsperTime' },
+        { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'Snow', outField: 'Snow', interpolation: 'previous', timestamp: 'EsperTime' },
     ]
 });
 
@@ -122,7 +146,9 @@ mergedStore.addStreamAggr({
              { name: "Speed", interpolator: "linear" },
              { name: "TrafficStatus", interpolator: "linear" },
              { name: "temperature", interpolator: "linear" },
-             { name: "visibility", interpolator: "linear" }],
+             { name: "visibility", interpolator: "linear" },
+             { name: "Priority", interpolator: "linear" }
+    ],
     createStore: false, interval: resampleInterval
 });
 
@@ -171,7 +197,7 @@ var ftrSpace = analytics.newFeatureSpace(features);
 //var avr = Service.Mobis.Utils.Baseline.newAvrVal();
 var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact": 0.98, "regFact": 10000 });
 var ridgeRegression = new analytics.ridgeRegression(10000, ftrSpace.dim);
-var svmr = Service.Mobis.Utils.OnlineSVMR.newSvmRegression(ftrSpace.dim, { "c": 0.01, "eps": 0.00001, "maxTime": 0.1, "maxIterations": 100000, batchSize: 100}, 10);
+//var svmr = Service.Mobis.Utils.OnlineSVMR.newSvmRegression(ftrSpace.dim, { "c": 0.01, "eps": 0.00001, "maxTime": 0.1, "maxIterations": 100000, batchSize: 100}, 10);
 var NN = analytics.newNN({ "layout": [ftrSpace.dim, 4, 1], "tFuncHidden": "sigmoid", "tFuncOut": "linear", "learnRate": 0.2, "momentum": 0.2 });
 var knn = analytics.newKNearestNeighbors(3, 100);
 
@@ -179,8 +205,8 @@ var knn = analytics.newKNearestNeighbors(3, 100);
 resampledStore.addTrigger({
     onAdd: function (rec) {
         // Adds ema-s to rec
-        rec.Ema1 = resampledStore.getStreamAggr("Ema1").val.EMA;
-        rec.Ema2 = resampledStore.getStreamAggr("Ema2").val.EMA;
+        rec.Ema1 = resampledStore.getStreamAggr("Ema1").val.Val;
+        rec.Ema2 = resampledStore.getStreamAggr("Ema2").val.Val;
 
         //console.log("\nRec for time: " + rec.DateTime.string);
         //ftrSpace.ftrVec(rec).print()
@@ -196,7 +222,7 @@ resampledStore.addTrigger({
         rec.AvrValPred = avr.getAvr();
         rec.LinregPred = linreg.predict(ftrSpace.ftrVec(rec));
         rec.RidgeRegPred = ridgeRegression.predict(ftrSpace.ftrVec(rec));
-        rec.SvmrPred = svmr.predict(ftrSpace.ftrVec(rec));
+        //rec.SvmrPred = svmr.predict(ftrSpace.ftrVec(rec));
         rec.NNPred = NN.predict(ftrSpace.ftrVec(rec)).at(0);
         rec.KNNPred = knn.predict(ftrSpace.ftrVec(rec));
 
@@ -209,7 +235,7 @@ resampledStore.addTrigger({
         if (trainRecId > 0) {
             // update models
             linreg.learn(ftrSpace.ftrVec(resampledStore[trainRecId]), rec.Speed);
-            svmr.learn(ftrSpace.ftrVec(resampledStore[trainRecId]), rec.Speed);
+            //svmr.learn(ftrSpace.ftrVec(resampledStore[trainRecId]), rec.Speed);
             ridgeRegression.addupdate(ftrSpace.ftrVec(resampledStore[trainRecId]), rec.Speed);
             NN.learn(ftrSpace.ftrVec(resampledStore[trainRecId]), la.newVec([rec.Speed]));
             avr.update(resampledStore[trainRecId].Speed);
@@ -262,9 +288,17 @@ resampledStore.addTrigger({
     }
 });
 
+//Load all records from eventLoadStore to eventStore so that the trigers will be triggered
+for (var ii = 0; ii < eventLoadStore.length - 1; ii++) {
+    var currentRec = eventLoadStore[ii];
+    var val = currentRec.toJSON(true);
+    delete val.$id;
+    eventStore.add(val);
+}
+
 // Imports data from loadstores according to timestamp
-var loadStores = [trafficLoadStore, weatherLoadStore];
-var targetStores = [trafficStore, weatherStore];
+var loadStores = [trafficLoadStore, weatherLoadStore, eventLogsLoadStore];
+var targetStores = [trafficStore, weatherStore, eventLogsStore];
 Service.Mobis.Utils.Data.importData(loadStores, targetStores);
 
 // DEBUGGING

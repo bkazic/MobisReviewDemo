@@ -48,7 +48,7 @@ exports.defineStores = function () {
         storeDef = [{
             "name": storeName,
             "fields": [
-                    { "name": "time", "type": "datetime" },
+                    { "name": "time", "type": "datetime", primary: true },
                     { "name": "timeString", "type": "string", "null": true },
                     { "name": "summary", "type": "string", "null": true },
                     { "name": "icon", "type": "string", "null": true },
@@ -86,6 +86,99 @@ exports.defineStores = function () {
     var filename_measurements = "./sandbox/" + scriptNm + "/weatherLog.txt";
     qm.load.jsonFile(qm.store('weatherLoadStore'), filename_measurements);
 
+ 
+
+    // Define store for event descriptions
+    var createEventInfoStore = function (storeName, extraFields) {
+        storeDef = [{
+            "name": storeName,
+            "fields": [
+                { "name": "Updated", "type": "datetime", "null": true },
+                { "name": "Deleted", "type": "bool", "null": true },
+                { "name": "Description", "type": "string", "null": true },
+                { "name": "ValidFrom", "type": "datetime", "null": true },
+                { "name": "Entered", "type": "datetime", "null": true },
+                { "name": "EditingOperator", "type": "string", "null": true },
+                { "name": "Location", "type": "float_pair", "null": true },
+                { "name": "Stationing", "type": "string", "null": true },
+                { "name": "DescriptionEn", "type": "string", "null": true },
+                { "name": "Priority", "type": "float", "null": true },
+                { "name": "Source", "type": "string", "null": true },
+                { "name": "Name", "type": "string", "null": true },
+                { "name": "Category", "type": "string", "null": true },
+                { "name": "ValidUntil", "type": "datetime", "null": true },
+                { "name": "Changed", "type": "datetime", "null": true },
+                { "name": "BorderCrossing", "type": "bool", "null": true },
+                { "name": "CancelingOperator", "type": "string", "null": true },
+                { "name": "Id", "type": "float", "null": true },
+                { "name": "IdString", "type": "string", "primary": true },
+                { "name": "Road", "type": "string", "null": true },
+                { "name": "RoadPrioroty", "type": "string", "null": true },
+                { "name": "Cause", "type": "string", "null": true },
+            ],
+        }];
+        if (extraFields) {
+            storeDef[0].fields = storeDef[0].fields.concat(extraFields);
+        }
+        qm.createStore(storeDef);
+    };
+
+    createEventInfoStore("eventLoadStore");
+    createEventInfoStore("eventStore", [
+                { "name": "RoadPriorityFlt", "type": "float", "null": true },
+                { "name": "TrafficJam", "type": "float", "null": true },
+                { "name": "RoadClosure", "type": "float", "null": true },
+                { "name": "TrafficAccident", "type": "float", "null": true },
+                { "name": "OtherEvents", "type": "float", "null": true },
+                { "name": "Ice", "type": "float", "null": true },
+                { "name": "Roadworks", "type": "float", "null": true },
+                { "name": "Wind", "type": "float", "null": true },
+                { "name": "NoFreightTraffic", "type": "float", "null": true },
+                { "name": "Snow", "type": "float", "null": true },
+    ]);
+
+    //var eventLoadStore = qm.store("eventLoadStore");
+    //var eventStore = qm.store("eventStore");
+    var filename_events = "./sandbox/" + scriptNm + "/events-0178-11.json";
+    qm.load.jsonFile(qm.store('eventLoadStore'), filename_events);
+
+
+
+    // Define store for event logs (with link to event description - EventInfo)
+    var createEventStore = function (storeName, extraFields) {
+        storeDef = [{
+            "name": storeName,
+            "fields": [
+                { "name": "CounterId", "type": "string", "null": true },
+                { "name": "CounterGroup", "type": "string", "null": true },
+                { "name": "Distance", "type": "float", "null": true },
+                //{ "name": "CounterUpdate", "type": "datetime", "null": true },
+                //{ "name": "CounterFeedUpdate", "type": "datetime", "null": true },
+                //{ "name": "EventFeedUpdate", "type": "datetime", "null": true },
+                { "name": "EsperTime", "type": "datetime", "primary": true },
+                //{ "name": "DateTime", "type": "datetime", "null": true },
+            ],
+            "joins": [
+                { "name": "EventInfo", "type": "field", "store": "eventStore" },
+                //{ "name": "CounterNode", "type": "field", "store": "counterNode" }
+            ],
+        }];
+        if (extraFields) {
+            storeDef[0].fields = storeDef[0].fields.concat(extraFields);
+        }
+        qm.createStore(storeDef);
+    };
+
+    createEventStore("eventLogsLoadStore");
+    createEventStore("eventLogsStore");
+
+    //var eventLogsLoadStore = qm.store("eventLogsLoadStore");
+    //var eventLogsStore = qm.store("eventLogsStore");
+    var filename_logs = "./sandbox/" + scriptNm + "/counter-events-0178-11.json";
+    qm.load.jsonFile(qm.store('eventLogsLoadStore'), filename_logs);
+
+
+
     // Define merged store
     createTrafficStore("mergedStore", [
                 { "name": "summary", "type": "string", "null": true },
@@ -103,7 +196,19 @@ exports.defineStores = function () {
                 { "name": "fog", "type": "float", "null": true },
                 { "name": "cloudy", "type": "float", "null": true },
                 { "name": "partlyCloudyDay", "type": "float", "null": true },
-                { "name": "parltlyCloudyNight", "type": "float", "null": true }
+                { "name": "parltlyCloudyNight", "type": "float", "null": true },
+
+                { "name": "Priority", "type": "float", "null": true },
+                { "name": "RoadPriorityFlt", "type": "float", "null": true },
+                { "name": "TrafficJam", "type": "float", "null": true },
+                { "name": "RoadClosure", "type": "float", "null": true },
+                { "name": "TrafficAccident", "type": "float", "null": true },
+                { "name": "OtherEvents", "type": "float", "null": true },
+                { "name": "Ice", "type": "float", "null": true },
+                { "name": "Roadworks", "type": "float", "null": true },
+                { "name": "Wind", "type": "float", "null": true },
+                { "name": "NoFreightTraffic", "type": "float", "null": true },
+                { "name": "Snow", "type": "float", "null": true },
     ]);
 
 
@@ -125,6 +230,18 @@ exports.defineStores = function () {
                 { "name": "cloudy", "type": "float", "null": true },
                 { "name": "partlyCloudyDay", "type": "float", "null": true },
                 { "name": "parltlyCloudyNight", "type": "float", "null": true },
+
+                { "name": "Priority", "type": "float", "null": true },
+                { "name": "RoadPriorityFlt", "type": "float", "null": true },
+                { "name": "TrafficJam", "type": "float", "null": true },
+                { "name": "RoadClosure", "type": "float", "null": true },
+                { "name": "TrafficAccident", "type": "float", "null": true },
+                { "name": "OtherEvents", "type": "float", "null": true },
+                { "name": "Ice", "type": "float", "null": true },
+                { "name": "Roadworks", "type": "float", "null": true },
+                { "name": "Wind", "type": "float", "null": true },
+                { "name": "NoFreightTraffic", "type": "float", "null": true },
+                { "name": "Snow", "type": "float", "null": true },
 
                 { "name": "Target", "type": "float", "null": true, "default": 0.0 },
                 { "name": "Ema1", "type": "float", "null": true },
@@ -151,7 +268,9 @@ exports.defineStores = function () {
 
     createTrafficStore("resampledStore", extraFields);
     //var resampledStore = qm.store('resampledStore');
+
 }
+
 
 // About this module
 exports.about = function () {

@@ -1,5 +1,5 @@
-// object for metric model
-function createMetric(updateCallback) {
+// object for online metrics model
+function createOnlineMetric(updateCallback) {
     this.error = -1;
     this.calcError = new updateCallback();
     // update function defined with callback function
@@ -25,7 +25,7 @@ exports.newMeanError = function () {
             return error;
         }
     }
-    return new createMetric(calcError);
+    return new createOnlineMetric(calcError);
 }
 
 exports.newMeanAbsoluteError = function () {
@@ -40,7 +40,7 @@ exports.newMeanAbsoluteError = function () {
             return error;
         }
     }
-    return new createMetric(calcError);
+    return new createOnlineMetric(calcError);
 }
 
 exports.newMeanSquareError = function () {
@@ -55,7 +55,7 @@ exports.newMeanSquareError = function () {
             return error;
         }
     }
-    return new createMetric(calcError);
+    return new createOnlineMetric(calcError);
 }
 
 
@@ -71,11 +71,11 @@ exports.newRootMeanSquareError = function () {
             return Math.sqrt(error);
         }
     }
-    return new createMetric(calcError);
+    return new createOnlineMetric(calcError);
 }
 
 // About this module
 exports.about = function () {
-    var description = "Module with statistics functions for evaluation.";
+    var description = "Module with evalutaion metrics.";
     return description;
 };
