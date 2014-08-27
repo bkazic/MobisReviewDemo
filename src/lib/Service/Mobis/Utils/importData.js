@@ -1,8 +1,7 @@
-
-
-exports.importData = function (inStores, outStores) {
+exports.importData = function (inStores, outStores, limit) {
     var loadStores = inStores;
     var targetStores = outStores;
+    var count = 0; //counter used for counting iterations when limit is defined
 
     // Find and returns first datetime field from store
     getDateTimeFieldName = function (store) {
@@ -43,21 +42,23 @@ exports.importData = function (inStores, outStores) {
         return idx;
     };
 
-    //var loadStores = [trafficLoadStore, weatherLoadStore];
-    //var targetStores = [trafficStore, weatherStore];
-
-    //mors met array timestampov vseh storov, v istem vrstnem redu kot so stori v loadStores in targetStores
-    //var currRecIdxs = [trafficLoadStore[0].DateTime.timestamp, weatherLoadStore[0].time.timestamp] // to kasneje avtomatiziraj
     var currRecIdxs = [];
     for (var ii = 0; ii < loadStores.length; ii++) {
         currRecIdxs.push(0);
     }
-    //var currRecIdxs = [0, 0] //TODO: generiraj to avtomatsko
     //var lowestRecIdx = findLowestRecIdx(currRecIdxs);
     var dateTimeFields = getDateTimeFieldNames(loadStores);
     while (true) {
-        var lowestRecIdx = findLowestRecIdx(currRecIdxs); //TODO, mora vracat -1 ce pride do konca. To isces glede na timestamp
+        var lowestRecIdx = findLowestRecIdx(currRecIdxs); 
         if (lowestRecIdx == -1) break;
+
+        // If input parameter limit is defined
+        if (limit != null) {
+            if (count > limit) {
+                console.log("Reached count limit at " + limit)
+                break;
+            } else count++
+        }
 
         //console.log("\nDodal bomo: " + JSON.stringify(loadStores[lowestRecIdx].recs[currRecIdxs[lowestRecIdx]]));
 
@@ -68,9 +69,7 @@ exports.importData = function (inStores, outStores) {
         targetStores[lowestRecIdx].add(val);
 
         //console.log("\nLast resampled rec: " + JSON.stringify(resampledStore.last));
-
         currRecIdxs[lowestRecIdx]++
-
         //console.start()
     }
 }
