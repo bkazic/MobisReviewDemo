@@ -41,6 +41,22 @@ exports.specialDaysFtrExtractor = function (key, store) {
     };
 }
 
+// weekend feature extractor
+exports.newWeekendFtrExtractor = function () {
+    var WeekendFtrExtractor = function () {
+        //check if day of week is sunday (0) or saturday (6)
+        var checkIfWeekend = function (recDT) {
+            return (recDT.dayOfWeekNum == 0 || recDT.dayOfWeekNum == 6) ? 1 : 0;
+        }
+        //geter for feature
+        this.getFtr = function (rec) {
+            var recDT = rec.DateTime;
+            return checkIfWeekend(recDT);
+        }
+    };
+    return new WeekendFtrExtractor();
+}
+
 // About this module
 exports.about = function () {
     var description = "Module contains functions for special days feature extractors defined in specialDays.txt.";

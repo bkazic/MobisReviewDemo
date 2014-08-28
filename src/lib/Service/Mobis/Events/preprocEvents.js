@@ -1,7 +1,9 @@
 // This has to be moved to module event preprocessing
 exports.makeRadPriorotyToFloat = function () {
     var roadPriorotyToFloat = function (rec) {
-        rec.RoadPriorityFlt = parseFloat(rec.RoadPrioroty);
+        var flt = parseFloat(rec.RoadPrioroty);
+        // Check if it was parsed. Set it to 0, if ti was NaN
+        rec.RoadPriorityFlt = (!isNaN(flt)) ? flt : 0;
         // Some values are strange (99). Maybe you could handel them here also.
     }
     return roadPriorotyToFloat;

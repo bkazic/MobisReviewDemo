@@ -27,7 +27,7 @@ var knnMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
 var avr = Service.Mobis.Utils.Baseline.newAvrVal();
 var histVals = Service.Mobis.Utils.HistVals.newHistoricalVals(5);
 
-// Loads stores and import data
+//// Define Stores
 Service.Mobis.Utils.Stores.defineStores();
 var CounterNode = qm.store("CounterNode");
 var trafficLoadStore = qm.store('trafficLoadStore');
@@ -46,6 +46,7 @@ var eventLogsStore = qm.store("eventLogsStore");
 // Constructor for special days feature extractor
 var slovenianHolidayFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("Slovenian_holidays");
 var fullMoonFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("Full_moon");
+var weekendFtr = Service.Mobis.Utils.Ftr.newWeekendFtrExtractor();
 
 
 ///////////////////// PREPROCESSING FOR TRAFFIC DATA SOURCE /////////////////////
@@ -107,9 +108,9 @@ qm.newStreamAggr({
         { source: 'trafficStore', inField: 'Speed', outField: 'Speed', interpolation: 'linear', timestamp: 'DateTime' },
         //{ source: { store: 'trafficStore', join: 'measuredBy' }, inField: 'MaxSpeed', outField: 'Speed', interpolation: 'linear', timestamp: 'DateTime' },
         { source: 'trafficStore', inField: 'TrafficStatus', outField: 'TrafficStatus', interpolation: 'linear', timestamp: 'DateTime' },
+
         { source: 'weatherStore', inField: 'temperature', outField: 'temperature', interpolation: 'linear', timestamp: 'time' },
         { source: 'weatherStore', inField: 'visibility', outField: 'visibility', interpolation: 'linear', timestamp: 'time' },
-        { source: 'weatherStore', inField: 'icon', outField: 'visibility', interpolation: 'previous', timestamp: 'time' },
         { source: 'weatherStore', inField: 'clearDay', outField: 'clearDay', interpolation: 'previous', timestamp: 'time' },
         { source: 'weatherStore', inField: 'clearNight', outField: 'clearNight', interpolation: 'previous', timestamp: 'time' },
         { source: 'weatherStore', inField: 'rain', outField: 'rain', interpolation: 'previous', timestamp: 'time' },
@@ -120,6 +121,8 @@ qm.newStreamAggr({
         { source: 'weatherStore', inField: 'cloudy', outField: 'cloudy', interpolation: 'previous', timestamp: 'time' },
         { source: 'weatherStore', inField: 'partlyCloudyDay', outField: 'partlyCloudyDay', interpolation: 'previous', timestamp: 'time' },
         { source: 'weatherStore', inField: 'parltlyCloudyNight', outField: 'parltlyCloudyNight', interpolation: 'previous', timestamp: 'time' },
+
+        { source: 'eventLogsStore', inField: 'Distance', outField: 'Distance', interpolation: 'previous', timestamp: 'EsperTime' },
         { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'Priority', outField: 'Priority', interpolation: 'previous', timestamp: 'EsperTime' },
         { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'RoadPriorityFlt', outField: 'RoadPriorityFlt', interpolation: 'previous', timestamp: 'EsperTime' },
         { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'TrafficJam', outField: 'TrafficJam', interpolation: 'previous', timestamp: 'EsperTime' },
@@ -130,7 +133,7 @@ qm.newStreamAggr({
         { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'Roadworks', outField: 'Roadworks', interpolation: 'previous', timestamp: 'EsperTime' },
         { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'Wind', outField: 'Wind', interpolation: 'previous', timestamp: 'EsperTime' },
         { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'NoFreightTraffic', outField: 'NoFreightTraffic', interpolation: 'previous', timestamp: 'EsperTime' },
-        { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'Snow', outField: 'Snow', interpolation: 'previous', timestamp: 'EsperTime' },
+        { source: { store: 'eventLogsStore', join: 'EventInfo' }, inField: 'Snow', outField: 'SnowEvent', interpolation: 'previous', timestamp: 'EsperTime' },
     ]
 });
 
@@ -145,9 +148,31 @@ mergedStore.addStreamAggr({
              { name: "Occupancy", interpolator: "linear" },
              { name: "Speed", interpolator: "linear" },
              { name: "TrafficStatus", interpolator: "linear" },
+
              { name: "temperature", interpolator: "linear" },
              { name: "visibility", interpolator: "linear" },
-             { name: "Priority", interpolator: "linear" }
+             { name: "clearDay", interpolator: "previous" },
+             { name: "clearNight", interpolator: "previous" },
+             { name: "rain", interpolator: "previous" },
+             { name: "snow", interpolator: "previous" },
+             { name: "sleet", interpolator: "previous" },
+             { name: "wind", interpolator: "previous" },
+             { name: "fog", interpolator: "previous" },
+             { name: "cloudy", interpolator: "previous" },
+             { name: "partlyCloudyDay", interpolator: "previous" },
+             { name: "parltlyCloudyNight", interpolator: "previous" },
+
+             { name: "Distance", interpolator: "previous" },
+             { name: "Priority", interpolator: "previous" },
+             { name: "RoadPriorityFlt", interpolator: "previous" },
+             { name: "TrafficJam", interpolator: "previous" },
+             { name: "RoadClosure", interpolator: "previous" },
+             { name: "TrafficAccident", interpolator: "previous" },
+             { name: "OtherEvents", interpolator: "previous" },
+             { name: "Ice", interpolator: "previous" },
+             { name: "Wind", interpolator: "previous" },
+             { name: "NoFreightTraffic", interpolator: "previous" },
+             { name: "SnowEvent", interpolator: "previous" }
     ],
     createStore: false, interval: resampleInterval
 });
@@ -174,19 +199,45 @@ resampledStore.addStreamAggr({ name: "delay", type: "recordBuffer", size: 7 });
 // define features
 var features = [
     { type: "constant", source: resampledStore.name, val: 1 },
-    { type: "jsfunc", source: resampledStore.name, name: "slovanianHolidays", dim: 1, fun: slovenianHolidayFtr.getFtr },
-    { type: "jsfunc", source: resampledStore.name, name: "foolMoon", dim: 1, fun: fullMoonFtr.getFtr },
+    //{ type: "jsfunc", source: resampledStore.name, name: "slovanianHolidays", dim: 1, fun: slovenianHolidayFtr.getFtr },
+    //{ type: "jsfunc", source: resampledStore.name, name: "foolMoon", dim: 1, fun: fullMoonFtr.getFtr },
+    //{ type: "jsfunc", source: resampledStore.name, name: "weekend", dim: 1, fun: weekendFtr.getFtr },
+    { type: "jsfunc", source: resampledStore.name, name: "weekend", dim: 1, fun: function (rec) {return (rec.DateTime.dayOfWeekNum == 0 || rec.DateTime.dayOfWeekNum == 6) ? 1 : 0 } },
     { type: "jsfunc", source: resampledStore.name, name: "historicalValues", dim: histVals.getSize(), fun: histVals.getVals },
+
     { type: "numeric", source: resampledStore.name, field: "Speed", normalize: false },
-    { type: "numeric", source: resampledStore.name, field: "Ema1", normalize: false },
-    { type: "numeric", source: resampledStore.name, field: "Ema2", normalize: false },
-    { type: "numeric", source: resampledStore.name, field: "NumOfCars", normalize: false },
-    { type: "numeric", source: resampledStore.name, field: "Gap", normalize: false },
-    { type: "numeric", source: resampledStore.name, field: "Occupancy", normalize: false },
-    { type: "numeric", source: resampledStore.name, field: "TrafficStatus", normalize: false },
-    { type: "numeric", source: resampledStore.name, field: "temperature", normalize: false },
-    { type: "numeric", source: resampledStore.name, field: "visibility", normalize: false },
-    { type: "multinomial", source: resampledStore.name, field: "DateTime", datetime: true }
+    //{ type: "numeric", source: resampledStore.name, field: "Ema1", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "Ema2", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "NumOfCars", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "Gap", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "Occupancy", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "TrafficStatus", normalize: false },
+
+    //{ type: "numeric", source: resampledStore.name, field: "temperature", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "visibility", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "clearDay", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "clearNight", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "rain", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "snow", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "sleet", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "wind", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "fog", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "cloudy", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "partlyCloudyDay", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "parltlyCloudyNight", normalize: false },
+
+    //{ type: "numeric", source: resampledStore.name, field: "Priority", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "RoadPriorityFlt", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "TrafficJam", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "RoadClosure", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "TrafficAccident", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "OtherEvents", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "Ice", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "Wind", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "NoFreightTraffic", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "SnowEvent", normalize: false },
+
+    //{ type: "multinomial", source: resampledStore.name, field: "DateTime", datetime: true }
 ];
 // Feature extractors for feature space
 var ftrSpace = analytics.newFeatureSpace(features);
@@ -208,8 +259,8 @@ resampledStore.addTrigger({
         rec.Ema1 = resampledStore.getStreamAggr("Ema1").val.Val;
         rec.Ema2 = resampledStore.getStreamAggr("Ema2").val.Val;
 
-        //console.log("\nRec for time: " + rec.DateTime.string);
-        //ftrSpace.ftrVec(rec).print()
+        console.log("\nRec for time: " + rec.DateTime.string);
+        ftrSpace.ftrVec(rec).print()
         //console.startx(function (x) { return eval(x); })
         //console.log("X cols for SVMR: " + knn.X.cols)
         //knn.X.print()
@@ -288,18 +339,13 @@ resampledStore.addTrigger({
     }
 });
 
-//Load all records from eventLoadStore to eventStore so that the trigers will be triggered
-for (var ii = 0; ii < eventLoadStore.length - 1; ii++) {
-    var currentRec = eventLoadStore[ii];
-    var val = currentRec.toJSON(true);
-    delete val.$id;
-    eventStore.add(val);
-}
+//// Load Stores from log files
+Service.Mobis.Utils.Stores.loadStores();
 
 // Imports data from loadstores according to timestamp
 var loadStores = [trafficLoadStore, weatherLoadStore, eventLogsLoadStore];
 var targetStores = [trafficStore, weatherStore, eventLogsStore];
-Service.Mobis.Utils.Data.importData(loadStores, targetStores);
+Service.Mobis.Utils.Data.importData(loadStores, targetStores, 1100);
 
 // DEBUGGING
 console.start()
