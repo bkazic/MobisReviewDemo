@@ -2,7 +2,7 @@ var analytics = require('analytics.js');
 var evaluation = require('evaluation.js')
 var tm = require('time')
 var utilities = require('utilities.js');
-viz = require('visualization.js');
+var viz = require('visualization.js');
 
 // Create instance for stop watch
 sw = new utilities.clsStopwatch();
@@ -13,6 +13,7 @@ var Service = {}; Service.Mobis = {}; Service.Mobis.Utils = {};
 Service.Mobis.Loop = require('Service/Mobis/Loop/preprocLoop.js');
 Service.Mobis.Weather = require('Service/Mobis/Weather/preprocWeather.js');
 Service.Mobis.Events = require('Service/Mobis/Events/preprocEvents.js');
+Service.Mobis.Utils.Io = require('Service/Mobis/Utils/io.js');
 Service.Mobis.Utils.Data = require('Service/Mobis/Utils/importData.js');
 Service.Mobis.Utils.Stores = require('Service/Mobis/Utils/defineStores.js');
 Service.Mobis.Utils.Stat = require('Service/Mobis/Utils/stat.js');
@@ -23,17 +24,19 @@ Service.Mobis.Utils.OnlineSVMR = require('Service/Mobis/Utils/svmRegression.js')
 
 // Create instances for Mean Absolute Error
 var speedLimitMAE = evaluation.newMeanAbsoluteError();
-//var speedLimitMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
-var avrValMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
-var prevValMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
-var linregMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
-var ridgeRegMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
-var ridgeRegSVDMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
-var svmrMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
-var nnMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
-var knnMAE = Service.Mobis.Utils.Stat.newMeanAbsoluteError();
+var avrValMAE = evaluation.newMeanAbsoluteError();
+var prevValMAE = evaluation.newMeanAbsoluteError();
+var linregMAE = evaluation.newMeanAbsoluteError();
+var ridgeRegMAE = evaluation.newMeanAbsoluteError();
+var ridgeRegSVDMAE = evaluation.newMeanAbsoluteError();
+var svmrMAE = evaluation.newMeanAbsoluteError();
+var nnMAE = evaluation.newMeanAbsoluteError();
+var knnMAE = evaluation.newMeanAbsoluteError();
+
 var avr = Service.Mobis.Utils.Baseline.newAvrVal();
 var histVals = Service.Mobis.Utils.HistVals.newHistoricalVals(5);
+var IO = Service.Mobis.Utils.Io.newSaveToFile("sandbox/" + process.scriptNm + "/log.txt");
+var IO2 = Service.Mobis.Utils.Io.newSaveToFile("sandbox/" + process.scriptNm + "/logWithTarget.txt");
 
 //// Define Stores
 Service.Mobis.Utils.Stores.defineStores();
@@ -46,7 +49,7 @@ var weatherLoadStore = qm.store('weatherLoadStore');
 var weatherStore = qm.store('weatherStore');
 var mergedStore = qm.store('mergedStore');
 var resampledStore = qm.store('resampledStore');
-var eventLoadStore = qm.store("eventLoadStore");
+//var eventLoadStore = qm.store("eventLoadStore");
 var eventStore = qm.store("eventStore");
 var eventLogsLoadStore = qm.store("eventLogsLoadStore");
 var eventLogsStore = qm.store("eventLogsStore");
@@ -65,6 +68,7 @@ trafficStore.addStreamAggr({
     saveJson: function () { }
 });
 
+// This cannot work anymore, since I have no duplicates anymore
 //// Calls function that adds field DateTime in String format that is set to primary (unique)
 //trafficStore.addStreamAggr({
 //    name: "markAsDuplicate",
@@ -73,6 +77,7 @@ trafficStore.addStreamAggr({
 //    saveJson: function () { }
 //});
 
+// This cannot work anymore since no rec is marked as duplicate (we have none)
 //var streamInterval = 5 * 60; // timestamp specified in seconds
 //trafficStore.addStreamAggr({
 //    name: "replaceMissingVals",
@@ -147,7 +152,7 @@ qm.newStreamAggr({
 
 //////////////////////////// RESAMPLING MERGED STORE ////////////////////////////
 // This resample aggregator creates new resampled store
-var resampleInterval = 10 * 60 * 1000;
+var resampleInterval = 5 * 60 * 1000;
 mergedStore.addStreamAggr({
     name: "Resampled", type: "resampler",
     outStore: resampledStore.name, timestamp: "DateTime",
@@ -251,10 +256,13 @@ var features = [
 var ftrSpace = analytics.newFeatureSpace(features);
 
 // load truncated svd decomposition matrix U
-//var fin = fs.openRead("svd23")
-var fin = fs.openRead("svd70")
-//var fin = fs.openRead("svd91")
-//var U = la.newSpMat().load(fin).full();
+//var fin = fs.openRead("sandbox/" + process.scriptNm + "/U91")
+//var fin = fs.openRead("sandbox/" + process.scriptNm + "/U70")
+//var fin = fs.openRead("sandbox/" + process.scriptNm + "/U50")
+//var fin = fs.openRead("sandbox/" + process.scriptNm + "/U20")
+var fin = fs.openRead("sandbox/" + process.scriptNm + "/U5")
+//var fin = fs.openRead("sandbox/" + process.scriptNm + "/U3")
+//var fin = fs.openRead("sandbox/" + process.scriptNm + "/U2")
 var U = la.newMat().load(fin);
 
 ///////////////// INITIALIZING ANALYTIC ALGORITHMS FOR PREDICTION //////////////////
@@ -282,8 +290,10 @@ resampledStore.addStreamAggr({
         //console.log("Tu sn...")
         //console.pause();
         //eval(breakpoint);
-        //console.log("\nRec for time: " + rec.DateTime.string);
+        //console.log("\nFtrVec for time: " + rec.DateTime.string);
         //ftrSpace.ftrVec(rec).print()
+        //console.log("\nRec for time: " + rec.DateTime.string);
+        //printj(rec);
         //console.startx(function (x) { return eval(x); })
         //console.log("X cols for SVMR: " + knn.X.cols)
         //knn.X.print()
@@ -307,6 +317,13 @@ resampledStore.addStreamAggr({
         // Add target for batch method
         resampledStore.add({ $id: trainRecId, Target: rec.Speed });
 
+        //console.log("\nReference FtrVec for time: " + resampledStore[trainRecId].DateTime.string);
+        //ftrSpace.ftrVec(resampledStore[trainRecId]).print()
+
+        //console.log("\nRefenrence Rec for time: " + resampledStore[trainRecId].DateTime.string);
+        //printj(resampledStore[trainRecId]);
+
+
         if (trainRecId > 0) {
             // update models
             linreg.learn(ftrSpace.ftrVec(resampledStore[trainRecId]), rec.Speed);
@@ -317,18 +334,21 @@ resampledStore.addStreamAggr({
             knn.update(ftrSpace.ftrVec(resampledStore[trainRecId]), rec.Speed);
             ridgeRegressionSVD.addupdate(U.multiplyT(ftrSpace.ftrVec(resampledStore[trainRecId])), rec.Speed);
 
+            IO.saveToFile(ftrSpace.ftrVec(resampledStore[trainRecId]));
+            IO2.saveToFile(ftrSpace.ftrVec(resampledStore[trainRecId]), rec.Speed);
+
             // skip first few iterations because the error of svmr is to high
             if (rec.$id > 50) {
-                // Calculate mean
-                speedLimitMAE.update(rec.Speed - resampledStore[trainRecId].SpeedLimit)
-                avrValMAE.update(rec.Speed - resampledStore[trainRecId].AvrValPred);
-                prevValMAE.update(rec.Speed - resampledStore[trainRecId].Speed);
-                linregMAE.update(rec.Speed - resampledStore[trainRecId].LinregPred);
-                ridgeRegMAE.update(rec.Speed - resampledStore[trainRecId].RidgeRegPred);
-                svmrMAE.update(rec.Speed - resampledStore[trainRecId].SvmrPred);
-                nnMAE.update(rec.Speed - resampledStore[trainRecId].NNPred);
-                knnMAE.update(rec.Speed - resampledStore[trainRecId].KNNPred);
-                ridgeRegSVDMAE.update(rec.Speed - resampledStore[trainRecId].RidgeRegSVDPred);
+                // Update error metrics
+                speedLimitMAE.update(rec.Speed, resampledStore[trainRecId].SpeedLimit)
+                avrValMAE.update(rec.Speed, resampledStore[trainRecId].AvrValPred);
+                prevValMAE.update(rec.Speed, resampledStore[trainRecId].Speed);
+                linregMAE.update(rec.Speed, resampledStore[trainRecId].LinregPred);
+                ridgeRegMAE.update(rec.Speed, resampledStore[trainRecId].RidgeRegPred);
+                svmrMAE.update(rec.Speed, resampledStore[trainRecId].SvmrPred);
+                nnMAE.update(rec.Speed, resampledStore[trainRecId].NNPred);
+                knnMAE.update(rec.Speed, resampledStore[trainRecId].KNNPred);
+                ridgeRegSVDMAE.update(rec.Speed, resampledStore[trainRecId].RidgeRegSVDPred);
             }
         }
         // Write errors to store
@@ -357,7 +377,7 @@ resampledStore.addStreamAggr({
             console.log("PrevVal: " + resampledStore[trainRecId].PrevValPred);
             console.log("LinReg: " + resampledStore[trainRecId].LinregPred);
             console.log("RidgeReg: " + resampledStore[trainRecId].RidgeRegPred);
-            console.log("RidgeRegSVD: " + resampledStore[trainRecId].RidgeRegSVDPred + "\n");
+            console.log("RidgeRegSVD: " + resampledStore[trainRecId].RidgeRegSVDPred);
             console.log("Svmr: " + resampledStore[trainRecId].SvmrPred);
             console.log("NN: " + resampledStore[trainRecId].NNPred);
             console.log("KNN: " + resampledStore[trainRecId].KNNPred + "\n");
@@ -391,7 +411,7 @@ var targetStores = [trafficStore, weatherStore, eventLogsStore];
 Service.Mobis.Utils.Data.importData(loadStores, targetStores);
 
 // DEBUGGING
-console.start()
+eval(breakpoint)
 
 var fields = [resampledStore.field("DateTime"),
               //resampledStore.field("NumOfCars"),
