@@ -19,16 +19,18 @@ Service.Mobis.Utils.Ftr = require('Service/Mobis/Utils/specialDays.js');
 Service.Mobis.Utils.HistVals = require('Service/Mobis/Utils/histVals.js');
 Service.Mobis.Utils.tmFtr = require('Service/Mobis/Utils/dateTimeFtr.js');
 
-// Create instances for evaluation metrics
-var speedLimitMAE = evaluation.newMeanAbsoluteError();
-var avrValMAE = evaluation.newMeanAbsoluteError();
-var prevValMAE = evaluation.newMeanAbsoluteError();
-var linregMAE = evaluation.newMeanAbsoluteError();
-var ridgeRegMAE = evaluation.newMeanAbsoluteError();
+// OLD CODE. DELE THIS LATER.
+// Create instances for Mean Absolute Error
+//var speedLimitMAE = evaluation.newMeanAbsoluteError();
+//var avrValMAE = evaluation.newMeanAbsoluteError();
+//var prevValMAE = evaluation.newMeanAbsoluteError();
+//var linregMAE = evaluation.newMeanAbsoluteError();
+//var ridgeRegMAE = evaluation.newMeanAbsoluteError();
 //var ridgeRegSVDMAE = evaluation.newMeanAbsoluteError();
-var svmrMAE = evaluation.newMeanAbsoluteError();
-var nnMAE = evaluation.newMeanAbsoluteError();
-var knnMAE = evaluation.newMeanAbsoluteError();
+//var svmrMAE = evaluation.newMeanAbsoluteError();
+//var nnMAE = evaluation.newMeanAbsoluteError();
+//var knnMAE = evaluation.newMeanAbsoluteError();
+
 
 // Create instances for analytics
 var avrOld = Service.Mobis.Utils.Baseline.newAvrVal(); // TEMPORARAY: DELETE THIS LATER
@@ -119,104 +121,46 @@ var ftrSpaceKNN = analytics.newFeatureSpace([
 
 
 
+//////////////////////////////// MORE AGREGATES //////////////////////////////////
+
 ///////////////// INITIALIZING SOME STUFF //////////////////
 horizons = [1, 6, 12, 18]
 //horizons = [12]
 
 // Initialize RecordBuffers definiton for all horizons 
 RecordBuffers = [];
-for (horizon in horizons) {
+for (var horizon in horizons) {
     recordBuffer = {
-        "name": "delay_" + horizons[horizon] + "h",
-        "type": "recordBuffer",
-        "horizon": horizons[horizon] + 1
+        name: "delay_" + horizons[horizon] + "h",
+        type: "recordBuffer",
+        horizon: horizons[horizon] + 1
     };
     RecordBuffers.push(recordBuffer);
 }
 
 // Initialize Emas definiton for all horizons 
 Emas = [];
-for (horizon in horizons) {
+for (var horizon in horizons) {
     emas = [
         {
-            "name": "Ema1_" + horizons[horizon] + "h",
-            "type": "ema",
-            "inAggr": "tick",
-            "emaType": "previous",
-            "interval": horizons[horizon] * 1 * 60 * 60 * 1000,
-            "initWindow": 60 * 60 * 1000,
+            name: "Ema1_" + horizons[horizon] + "h",
+            type: "ema",
+            inAggr: "tick",
+            emaType: "previous",
+            interval: horizons[horizon] * 1 * 60 * 60 * 1000,
+            initWindow: 60 * 60 * 1000,
         },
         {
-            "name": "Ema2_" + horizons[horizon] + "h",
-            "type": "ema",
-            "inAggr": "tick",
-            "emaType": "previous",
-            "interval": 24 * 60 * 60 * 1000,
-            "initWindow": 60 * 60 * 1000,
+            name: "Ema2_" + horizons[horizon] + "h",
+            type: "ema",
+            inAggr: "tick",
+            emaType: "previous",
+            interval: 24 * 60 * 60 * 1000,
+            initWindow: 60 * 60 * 1000,
         }
     ]
     Emas.push(emas);
 }
-
-
-
-
-
-
-///////////////// INITIALIZING ANALYTIC ALGORITHMS FOR PREDICTION //////////////////
-// Initialize analytics
-
-// create 24 avr models, for every hour
-var avrgs = [];
-for (horizon in horizons) {
-    avrgs[horizon] = [];
-    for (var i = 0; i < 2; i++) { // 2 models: working day or not
-        avrgs[horizon][i] = [];
-        for (var j = 0; j < 24; j++) {
-            avrgs[horizon][i][j] = Service.Mobis.Utils.Baseline.newAvrVal();
-            avrgs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model
-        }
-    }
-}
-
-// create 2 * 24 linear regression models 
-var linregs = []; // this will be array of objects
-for (horizon in horizons) {
-    linregs[horizon] = [];
-    for (var i = 0; i < 2; i++) { // 2 models: working day or not
-        linregs[horizon][i] = [];
-        for (var j = 0; j < 24; j++) { // 24 models: for every hour in day
-            linregs[horizon][i][j] = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 });
-            linregs[horizon][i][j]["workingDay"] = i; // asign new field "workingDay" to model
-            linregs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model
-            linregs[horizon][i][j]["updateCount"] = 0; // just for testing how many times model was updated
-        }
-    }
-}
-
-//var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 });
-
-// TODO
-var ridgeRegressions = [];
-var NNs = [];
-var knns = [];
-for (horizon in horizons) {
-    ridgeRegressions[horizon] = new analytics.ridgeRegression(10000, ftrSpace.dim, 100);
-    NNs[horizon] = analytics.newNN({ "layout": [ftrSpace.dim, 20, 1], "tFuncHidden": "tanHyper", "tFuncOut": "linear", "learnRate": 0.0005, "momentum": 0.00005 });
-    knns[horizon] = analytics.newKNearestNeighbors(3, 100);
-}
-
-// OLD CODE. DELE THIS LATER.
-//var NN = analytics.newNN({ "layout": [ftrSpace.dim, 20, 1], "tFuncHidden": "tanHyper", "tFuncOut": "linear", "learnRate": 0.0005, "momentum": 0.00005 });
-//var knn = analytics.newKNearestNeighbors(3, 100);
-
-
-
-
-
-
-//////////////////////////////// MORE AGREGATES //////////////////////////////////
-
 
 
 // insert testStoreResampled store aggregates
@@ -225,18 +169,8 @@ resampledStore.addStreamAggr({
     timestamp: "DateTime", value: "NumOfCars"
 });
 
-//for (horizon in horizons) {
-//    for (ema in Emas[horizon]) {
-//        var Ema = Emas[horizon][ema];
 
-//        resampledStore.addStreamAggr({
-//            name: Ema.name, type: Ema.type, inAggr: Ema.inAggr,
-//            emaType: Ema.emaType, interval: Ema.interval, initWindow: Ema.initWindow
-//        });
-//    }
-//}
-
-for (horizon in horizons) {
+for (var horizon in horizons) {
     Emas[horizon].forEach(function (Ema) {
 
         resampledStore.addStreamAggr({
@@ -245,6 +179,18 @@ for (horizon in horizons) {
         });
     })
 }
+
+// Another options, using two for loops
+//for (var horizon in horizons) {
+//    for (var ema in Emas[horizon]) {
+//        var Ema = Emas[horizon][ema];
+
+//        resampledStore.addStreamAggr({
+//            name: Ema.name, type: Ema.type, inAggr: Ema.inAggr,
+//            emaType: Ema.emaType, interval: Ema.interval, initWindow: Ema.initWindow
+//        });
+//    }
+//}
 
 // Original
 //resampledStore.addStreamAggr({
@@ -262,7 +208,7 @@ for (horizon in horizons) {
 
 
 // Execute buffer agregates for all horizons
-for (horizon in horizons) {
+for (var horizon in horizons) {
     var RecordBuffer = RecordBuffers[horizon]
 
     resampledStore.addStreamAggr({
@@ -278,6 +224,113 @@ for (horizon in horizons) {
 
 
 
+
+
+///////////////// INITIALIZING ANALYTIC ALGORITHMS FOR PREDICTION //////////////////
+// Initialize analytics
+
+// create 24 avr models, for every hour
+var avrgs = [];
+for (var horizon in horizons) {
+    avrgs[horizon] = [];
+    for (var i = 0; i < 2; i++) { // 2 models: working day or not
+        avrgs[horizon][i] = [];
+        for (var j = 0; j < 24; j++) {
+            avrgs[horizon][i][j] = Service.Mobis.Utils.Baseline.newAvrVal();
+            avrgs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model
+        }
+    }
+}
+
+// create 2 * 24 linear regression models 
+var linregs = []; // this will be array of objects
+for (var horizon in horizons) {
+    linregs[horizon] = [];
+    for (var i = 0; i < 2; i++) { // 2 models: working day or not
+        linregs[horizon][i] = [];
+        for (var j = 0; j < 24; j++) { // 24 models: for every hour in day
+            linregs[horizon][i][j] = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 });
+            linregs[horizon][i][j]["workingDay"] = i; // asign new field "workingDay" to model
+            linregs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model
+            linregs[horizon][i][j]["updateCount"] = 0; // just for testing how many times model was updated
+        }
+    }
+}
+
+// OLD CODE. DELE THIS LATER.
+//var linreg = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 });
+
+// TODO
+var ridgeRegressions = [];
+var NNs = [];
+var knns = [];
+for (var horizon in horizons) {
+    ridgeRegressions[horizon] = new analytics.ridgeRegression(10000, ftrSpace.dim, 100);
+    NNs[horizon] = analytics.newNN({ "layout": [ftrSpace.dim, 20, 1], "tFuncHidden": "tanHyper", "tFuncOut": "linear", "learnRate": 0.0005, "momentum": 0.00005 });
+    knns[horizon] = analytics.newKNearestNeighbors(3, 100);
+}
+
+// OLD CODE. DELE THIS LATER.
+//var NN = analytics.newNN({ "layout": [ftrSpace.dim, 20, 1], "tFuncHidden": "tanHyper", "tFuncOut": "linear", "learnRate": 0.0005, "momentum": 0.00005 });
+//var knn = analytics.newKNearestNeighbors(3, 100);
+
+
+
+///////////////// INITIALIZING ERROR METRICS //////////////////
+
+// Testing confing file
+var conf = {
+    fields: [
+        { name: "avr" },
+        { name: "prevVal" },
+        { name: "linReg" },
+        { name: "ridgeReg" },
+        { name: "svmr" },
+        { name: "nn" },
+        { name: "knn" }
+    ],
+    errorMetrics: [
+        { name: "MAE", constructor: function () { return evaluation.newMeanAbsoluteError() } },
+        { name: "RMSE", constructor: function () { return evaluation.newRootMeanSquareError() } }
+    ]
+}
+
+// Create metrics instances
+var errorMetrics = [];
+for (var horizon in horizons) {
+    errorMetrics[horizon] = [];
+    for (var field in conf.fields) {
+        errorMetrics[horizon][field] = [];
+        for (var errMetric in conf.errorMetrics) {
+            errorMetrics[horizon][field][errMetric] = conf.errorMetrics[errMetric].constructor();
+            errorMetrics[horizon][field][errMetric]["metric"] = conf.errorMetrics[errMetric].name;
+        }
+    }
+}
+
+
+// Create instances for evaluation metrics
+var speedLimitMAEs = [];
+var avrValMAEs = [];
+var prevValMAEs = [];
+var linregMAEs = [];
+var ridgeRegMAEs = [];
+//var ridgeRegSVDMAEs = [];
+var svmrMAEs = [];
+var nnMAEs = [];
+var knnMAEs = [];
+for (var horizon in horizons) {
+    speedLimitMAEs[horizon] = evaluation.newMeanAbsoluteError();
+    avrValMAEs[horizon] = evaluation.newMeanAbsoluteError();
+    prevValMAEs[horizon] = evaluation.newMeanAbsoluteError();
+    linregMAEs[horizon] = evaluation.newMeanAbsoluteError();
+    ridgeRegMAEs[horizon] = evaluation.newMeanAbsoluteError();
+    //ridgeRegSVDMAEs[horizon] = evaluation.newMeanAbsoluteError();
+    svmrMAEs[horizon] = evaluation.newMeanAbsoluteError();
+    nnMAEs[horizon] = evaluation.newMeanAbsoluteError();
+    knnMAEs[horizon] = evaluation.newMeanAbsoluteError();
+}
+
 sw.tic();
 sw2.tic();
 
@@ -285,16 +338,13 @@ sw2.tic();
 resampledStore.addStreamAggr({
     name: "analytics",
     onAdd: function (rec) {
-        for (horizon in horizons) {
+        for (var horizon in horizons) {
             rec.Ema1 = resampledStore.getStreamAggr(Emas[horizon][0].name).val.Val;
             rec.Ema2 = resampledStore.getStreamAggr(Emas[horizon][1].name).val.Val;
-
 
             // Get rec for training
             trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.first;
 
-            // Add target for batch method
-            // resampledStore.add({ $id: trainRecId, Target: rec.NumOfCars }); //DELETE THIS. THIS IS WRONG
 
 
             // Get prediction interval and time
@@ -339,6 +389,7 @@ resampledStore.addStreamAggr({
             if (trainRecId > 0) {
              
                 var target = rec.NumOfCars;
+
                 var predTrainId = resampledStore[trainRecId].Predictions[horizon].$id
                 Predictions.add({ $id: predTrainId, Target: target})
                 //eval(breakpoint)
@@ -356,22 +407,22 @@ resampledStore.addStreamAggr({
                 //histVals.update(trainRec.NumOfCars);
 
                 // update models
-                linreg.learn(ftrSpace.ftrVec(trainRec), rec.NumOfCars);
+                linreg.learn(ftrSpace.ftrVec(trainRec), target);
                 ////// JUST FOR TESTING
                 linreg.updateCount++;
 
-                //svmr.learn(ftrSpace.ftrVec(trainRec), rec.NumOfCars);
-                ridgeRegression.addupdate(ftrSpace.ftrVec(trainRec), rec.NumOfCars);
-                NN.learn(ftrSpace.ftrVec(trainRec), la.newVec([rec.NumOfCars]));
+                //svmr.learn(ftrSpace.ftrVec(trainRec), target);
+                ridgeRegression.addupdate(ftrSpace.ftrVec(trainRec), target);
+                NN.learn(ftrSpace.ftrVec(trainRec), la.newVec([target]));
                 avr.update(trainRec.NumOfCars);
                 avrOld.update(trainRec.NumOfCars); // TEMPORARAY: because is beeing used in preprocessing. DELETE THIS LATER and use the new method.
-                knn.update(ftrSpaceKNN.ftrVec(trainRec), rec.NumOfCars);
+                knn.update(ftrSpaceKNN.ftrVec(trainRec), target);
 
                 // EXCEPTION: I have to do this here and not where other predictions are made
                 // trainRec.AvrValPred = avrgs[horizon][work][hour].getAvr();
 
                 //IO.saveToFile(ftrSpace.ftrVec(resampledStore[trainRecId]));
-                //IO2.saveToFile(ftrSpace.ftrVec(resampledStore[trainRecId]), rec.NumOfCars);
+                //IO2.saveToFile(ftrSpace.ftrVec(resampledStore[trainRecId]), target);
 
                 //This is how you get to the predictions
                 //resampledStore[n].Predictions[0].Linreg
@@ -380,15 +431,33 @@ resampledStore.addStreamAggr({
 
                 // skip first few iterations because the error of svmr is to high
                 if (rec.$id > 50) {
+
+
+                    ////TODO: iteriraj po: horizontu, fieldu, in se po err
+                    //for (var field in conf.fields) {
+                    //    for (var errMetric in conf.errorMetrics) {
+                    //        var errMetric = errorMetrics[horizon][field][errMetric]
+
+                    // Select correct evaluation model
+                    speedLimitMAE = speedLimitMAEs[horizon];
+                    avrValMAE = avrValMAEs[horizon];
+                    prevValMAE = prevValMAEs[horizon];
+                    linregMAE = linregMAEs[horizon];
+                    ridgeRegMAE = ridgeRegMAEs[horizon];
+                    //ridgeRegSVDMAE = ridgeRegSVDMAEs[horizon];
+                    svmrMAE = svmrMAEs[horizon];
+                    nnMAE = nnMAEs[horizon];
+                    knnMAE = knnMAEs[horizon];
+
                     // Update error metrics
-                    speedLimitMAE.update(rec.NumOfCars, resampledStore[trainRecId].Predictions[horizon].SpeedLimit);
-                    avrValMAE.update(rec.NumOfCars, resampledStore[trainRecId].Predictions[horizon].AvrValPred);
-                    prevValMAE.update(rec.NumOfCars, resampledStore[trainRecId].Predictions[horizon].NumOfCars);
-                    linregMAE.update(rec.NumOfCars, resampledStore[trainRecId].Predictions[horizon].LinregPred);
-                    ridgeRegMAE.update(rec.NumOfCars, resampledStore[trainRecId].Predictions[horizon].RidgeRegPred);
-                    svmrMAE.update(rec.NumOfCars, resampledStore[trainRecId].Predictions[horizon].SvmrPred);
-                    nnMAE.update(rec.NumOfCars, resampledStore[trainRecId].Predictions[horizon].NNPred);
-                    knnMAE.update(rec.NumOfCars, resampledStore[trainRecId].Predictions[horizon].KNNPred);
+                    speedLimitMAE.update(target, resampledStore[trainRecId].Predictions[horizon].SpeedLimit);
+                    avrValMAE.update(target, resampledStore[trainRecId].Predictions[horizon].AvrValPred);
+                    prevValMAE.update(target, resampledStore[trainRecId].Predictions[horizon].NumOfCars);
+                    linregMAE.update(target, resampledStore[trainRecId].Predictions[horizon].LinregPred);
+                    ridgeRegMAE.update(target, resampledStore[trainRecId].Predictions[horizon].RidgeRegPred);
+                    svmrMAE.update(target, resampledStore[trainRecId].Predictions[horizon].SvmrPred);
+                    nnMAE.update(target, resampledStore[trainRecId].Predictions[horizon].NNPred);
+                    knnMAE.update(target, resampledStore[trainRecId].Predictions[horizon].KNNPred);
 
 
                     // Collect MAE errors
