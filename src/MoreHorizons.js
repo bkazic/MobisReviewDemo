@@ -279,35 +279,58 @@ for (var horizon in horizons) {
 ///////////////// INITIALIZING ERROR METRICS //////////////////
 
 // Testing confing file
-var conf = {
+var confMain = {
     fields: [
-        { name: "avr" },
-        { name: "prevVal" },
-        { name: "linReg" },
-        { name: "ridgeReg" },
-        { name: "svmr" },
-        { name: "nn" },
-        { name: "knn" }
+        { name: "SpeedLimit" }, //ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
+        { name: "PrevVal" },
+        { name: "AvrVal" },
+        { name: "Linreg" },
+        { name: "RidgeReg" },
+        { name: "RidgeRegSVD" },
+        { name: "Svmr" },
+        { name: "NN" },
+        { name: "KNN" }
+    ],
+    predictionFields: [
+        { name: "SpeedLimit" }, //ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
+        { name: "PrevValPred" },
+        { name: "AvrValPred" },
+        { name: "LinregPred" },
+        { name: "RidgeRegPred" },
+        //{ name: "RidgeRegSVDPred" },
+        //{ name: "SvmrPred" },
+        { name: "NNPred" },
+        { name: "KNNPred" }
+    ],
+    errorFields: [
+        { name: "SpeedLimitErr" , predictionField: "SpeedLimit"}, // AUTOMATIZE THIS
+        { name: "PrevValErr" , predictionField: "PrevValPred" },
+        { name: "AvrValErr" , predictionField: "AvrValPred" },
+        { name: "LinregErr" , predictionField: "LinregPred" },
+        { name: "RidgeRegErr" , predictionField: "RidgeRegPred" },
+        { name: "RidgeRegSVDErr" , predictionField: "RidgeRegSVDPred" },
+        { name: "SvmrErr" , predictionField: "SvmrPred" },
+        { name: "NNErr" , predictionField: "NNPred" },
+        { name: "KNNErr" , predictionField: "KNNPred" }
     ],
     errorMetrics: [
         { name: "MAE", constructor: function () { return evaluation.newMeanAbsoluteError() } },
-        { name: "RMSE", constructor: function () { return evaluation.newRootMeanSquareError() } }
+        { name: "MSE", constructor: function () { return evaluation.newMeanSquareError() } }
     ]
 }
 
 // Create metrics instances
-var errorMetrics = [];
+errorModels = [];
 for (var horizon in horizons) {
-    errorMetrics[horizon] = [];
-    for (var field in conf.fields) {
-        errorMetrics[horizon][field] = [];
-        for (var errMetric in conf.errorMetrics) {
-            errorMetrics[horizon][field][errMetric] = conf.errorMetrics[errMetric].constructor();
-            errorMetrics[horizon][field][errMetric]["metric"] = conf.errorMetrics[errMetric].name;
+    errorModels[horizon] = [];
+    for (var errMetric in confMain.errorMetrics) {
+        errorModels[horizon][errMetric] = [];
+        for (var field in confMain.errorFields) {
+            errorModels[horizon][errMetric][field] = confMain.errorMetrics[errMetric].constructor();
+            errorModels[horizon][errMetric][field]["metric"] = confMain.errorMetrics[errMetric].name;
         }
     }
 }
-
 
 // Create instances for evaluation metrics
 var speedLimitMAEs = [];
@@ -371,6 +394,7 @@ resampledStore.addStreamAggr({
 
             // Create prediction record
             var predictionRec = {};
+            predictionRec.OriginalTime = rec.DateTime.string;
             predictionRec.PredictionTime = predTime.string;
             predictionRec.PredictionHorizon = RecordBuffers[horizon].horizon - 1;
             predictionRec.SpeedLimit = trafficStore.last.measuredBy.MaxSpeed;
@@ -431,66 +455,84 @@ resampledStore.addStreamAggr({
 
                 // skip first few iterations because the error of svmr is to high
                 if (rec.$id > 50) {
+                             
+                    
+
+                    //TODO: iteriraj po: horizontu, fieldu, in se po err
+                    for (var errMetric in confMain.errorMetrics) {
+                        // create record with all the errors and write it to Evaluation store.
+                        var errRec = {};
+                        errRec.Name = confMain.errorMetrics[errMetric].name;
+                        for (var field in confMain.errorFields) {
+                            //console.log("horizon: " + horizon + ", errMetric: " + errMetric + " field: " + field);
+                            //printj(errRec, true)
+                            //eval(breakpoint)
+                            var errorModel = errorModels[horizon][errMetric][field];
+                            var prediction = resampledStore[trainRecId].Predictions[horizon][confMain.errorFields[field].predictionField]
+                            // update
+                            errorModel.update(target, prediction)
+                            // write to evalueation store
+                            errRec[confMain.errorFields[field].name] = errorModel.getError();
+                        }
+                        Evaluation.add(errRec);
+                        // Join rec with record from predictions
+                        resampledStore[trainRecId].Predictions[horizon].addJoin("Evaluation", Evaluation.last);
+                    }
 
 
-                    ////TODO: iteriraj po: horizontu, fieldu, in se po err
-                    //for (var field in conf.fields) {
-                    //    for (var errMetric in conf.errorMetrics) {
-                    //        var errMetric = errorMetrics[horizon][field][errMetric]
+                    //// Select correct evaluation model
+                    //speedLimitMAE = speedLimitMAEs[horizon];
+                    //avrValMAE = avrValMAEs[horizon];
+                    //prevValMAE = prevValMAEs[horizon];
+                    //linregMAE = linregMAEs[horizon];
+                    //ridgeRegMAE = ridgeRegMAEs[horizon];
+                    ////ridgeRegSVDMAE = ridgeRegSVDMAEs[horizon];
+                    //svmrMAE = svmrMAEs[horizon];
+                    //nnMAE = nnMAEs[horizon];
+                    //knnMAE = knnMAEs[horizon];
 
-                    // Select correct evaluation model
-                    speedLimitMAE = speedLimitMAEs[horizon];
-                    avrValMAE = avrValMAEs[horizon];
-                    prevValMAE = prevValMAEs[horizon];
-                    linregMAE = linregMAEs[horizon];
-                    ridgeRegMAE = ridgeRegMAEs[horizon];
-                    //ridgeRegSVDMAE = ridgeRegSVDMAEs[horizon];
-                    svmrMAE = svmrMAEs[horizon];
-                    nnMAE = nnMAEs[horizon];
-                    knnMAE = knnMAEs[horizon];
-
-                    // Update error metrics
-                    speedLimitMAE.update(target, resampledStore[trainRecId].Predictions[horizon].SpeedLimit);
-                    avrValMAE.update(target, resampledStore[trainRecId].Predictions[horizon].AvrValPred);
-                    prevValMAE.update(target, resampledStore[trainRecId].Predictions[horizon].NumOfCars);
-                    linregMAE.update(target, resampledStore[trainRecId].Predictions[horizon].LinregPred);
-                    ridgeRegMAE.update(target, resampledStore[trainRecId].Predictions[horizon].RidgeRegPred);
-                    svmrMAE.update(target, resampledStore[trainRecId].Predictions[horizon].SvmrPred);
-                    nnMAE.update(target, resampledStore[trainRecId].Predictions[horizon].NNPred);
-                    knnMAE.update(target, resampledStore[trainRecId].Predictions[horizon].KNNPred);
+                    //// Update error metrics
+                    //speedLimitMAE.update(target, resampledStore[trainRecId].Predictions[horizon].SpeedLimit);
+                    //avrValMAE.update(target, resampledStore[trainRecId].Predictions[horizon].AvrValPred);
+                    //prevValMAE.update(target, resampledStore[trainRecId].Predictions[horizon].NumOfCars);
+                    //linregMAE.update(target, resampledStore[trainRecId].Predictions[horizon].LinregPred);
+                    //ridgeRegMAE.update(target, resampledStore[trainRecId].Predictions[horizon].RidgeRegPred);
+                    //svmrMAE.update(target, resampledStore[trainRecId].Predictions[horizon].SvmrPred);
+                    //nnMAE.update(target, resampledStore[trainRecId].Predictions[horizon].NNPred);
+                    //knnMAE.update(target, resampledStore[trainRecId].Predictions[horizon].KNNPred);
 
 
-                    // Collect MAE errors
-                    var predMAE = {};
-                    predMAE.Name = "MAE";
-                    predMAE.SpeedLimitErr = speedLimitMAE.getError();
-                    predMAE.PrevValErr = prevValMAE.getError();
-                    predMAE.AvrValErr = avrValMAE.getError();
-                    predMAE.LinregErr = linregMAE.getError();
-                    predMAE.RidgeRegErr = ridgeRegMAE.getError();
-                    predMAE.SvmrErr = svmrMAE.getError();
-                    predMAE.NNErr = nnMAE.getError();
-                    predMAE.KNNErr = knnMAE.getError();
-                    // Write record to Evaluation store
-                    Evaluation.add(predMAE);
-                    // Join rec with record from predictions
-                    resampledStore[trainRecId].Predictions[horizon].addJoin("Evaluation", Evaluation.last);
-
-                    // JUST A TEST: Collect MSRE errors. WORKS FINE.
-                    //var predMSRE = {};
-                    //predMSRE.Name = "MSRE";
-                    //predMSRE.SpeedLimitErr = speedLimitMAE.getError();
-                    //predMSRE.PrevValErr = prevValMAE.getError();
-                    //predMSRE.AvrValErr = avrValMAE.getError();
-                    //predMSRE.LinregErr = linregMAE.getError();
-                    //predMSRE.RidgeRegErr = ridgeRegMAE.getError();
-                    //predMSRE.SvmrErr = svmrMAE.getError();
-                    //predMSRE.NNErr = nnMAE.getError();
-                    //predMSRE.KNNErr = knnMAE.getError();
+                    //// Collect MAE errors
+                    //var predMAE = {};
+                    //predMAE.Name = "MAE";
+                    //predMAE.SpeedLimitErr = speedLimitMAE.getError();
+                    //predMAE.PrevValErr = prevValMAE.getError();
+                    //predMAE.AvrValErr = avrValMAE.getError();
+                    //predMAE.LinregErr = linregMAE.getError();
+                    //predMAE.RidgeRegErr = ridgeRegMAE.getError();
+                    //predMAE.SvmrErr = svmrMAE.getError();
+                    //predMAE.NNErr = nnMAE.getError();
+                    //predMAE.KNNErr = knnMAE.getError();
                     //// Write record to Evaluation store
-                    //Evaluation.add(predMSRE);
+                    //Evaluation.add(predMAE);
                     //// Join rec with record from predictions
-                    //rec.$store[trainRecId].Predictions[horizon].addJoin("Evaluation", Evaluation.last);
+                    //resampledStore[trainRecId].Predictions[horizon].addJoin("Evaluation", Evaluation.last);
+
+                    //// JUST A TEST: Collect MSRE errors. WORKS FINE.
+                    ////var predMSRE = {};
+                    ////predMSRE.Name = "MSRE";
+                    ////predMSRE.SpeedLimitErr = speedLimitMAE.getError();
+                    ////predMSRE.PrevValErr = prevValMAE.getError();
+                    ////predMSRE.AvrValErr = avrValMAE.getError();
+                    ////predMSRE.LinregErr = linregMAE.getError();
+                    ////predMSRE.RidgeRegErr = ridgeRegMAE.getError();
+                    ////predMSRE.SvmrErr = svmrMAE.getError();
+                    ////predMSRE.NNErr = nnMAE.getError();
+                    ////predMSRE.KNNErr = knnMAE.getError();
+                    ////// Write record to Evaluation store
+                    ////Evaluation.add(predMSRE);
+                    ////// Join rec with record from predictions
+                    ////rec.$store[trainRecId].Predictions[horizon].addJoin("Evaluation", Evaluation.last);
 
                 }
                 // Reporting results
@@ -500,28 +542,48 @@ resampledStore.addStreamAggr({
                 if (print && resampledStore[trainRecId].Predictions[horizon] !== null && resampledStore[trainRecId].Predictions[horizon].Evaluation[0] !== null) {
                     sw2.toc("Leap time");
                     sw2.tic();
-                    ftrSpace.ftrVec(rec).print();
+                    ftrSpace.ftrVec(rec).print(); // Debuging
+
+                    console.println("");
+                    console.log("=== Predictions ===");
                     console.log("Working on rec: " + rec.DateTime.string );
-                    console.log("Prediction for: " + predTime.string);
-                    // Write predictions to console
-                    console.log("Flow:" + rec.NumOfCars);
-                    console.log("AvrVal: " + resampledStore[trainRecId].Predictions[horizon].AvrValPred);
-                    console.log("PrevVal: " + resampledStore[trainRecId].Predictions[horizon].PrevValPred);
-                    console.log("LinReg: " + resampledStore[trainRecId].Predictions[horizon].LinregPred);
-                    console.log("RidgeReg: " + resampledStore[trainRecId].Predictions[horizon].RidgeRegPred);
-                    console.log("Svmr: " + resampledStore[trainRecId].Predictions[horizon].SvmrPred);
-                    console.log("NN: " + resampledStore[trainRecId].Predictions[horizon].NNPred);
-                    console.log("KNN: " + resampledStore[trainRecId].Predictions[horizon].KNNPred + "\n");
+                    console.log("Prediction from: " + trainRec.Predictions[horizon].OriginalTime.string); // Same as trainRec.DateTime.string
+                    console.log("Target: " + target); // Same as rec.NumOfCars
+
+                    confMain.predictionFields.forEach(function (predField) {
+                        var predValue = trainRec.Predictions[horizon][predField.name];
+                        console.log(predField.name + ": " + predValue);
+                    });
+
+                    //console.log("Flow:" + rec.NumOfCars);
+                    //console.log("AvrVal: " + resampledStore[trainRecId].Predictions[horizon].AvrValPred);
+                    //console.log("PrevVal: " + resampledStore[trainRecId].Predictions[horizon].PrevValPred);
+                    //console.log("LinReg: " + resampledStore[trainRecId].Predictions[horizon].LinregPred);
+                    //console.log("RidgeReg: " + resampledStore[trainRecId].Predictions[horizon].RidgeRegPred);
+                    //console.log("Svmr: " + resampledStore[trainRecId].Predictions[horizon].SvmrPred);
+                    //console.log("NN: " + resampledStore[trainRecId].Predictions[horizon].NNPred);
+                    //console.log("KNN: " + resampledStore[trainRecId].Predictions[horizon].KNNPred + "\n");
+
+                    // Report evaluation metrics in the console
+                    for (var errMetric in confMain.errorMetrics) {
+                        console.println("");
+                        console.log("=== Evaluation metric: " + confMain.errorMetrics[errMetric].name + " ===");
+                        // Print out all evaluation fields for this metric.
+                        confMain.errorFields.forEach(function (errorField) {
+                            var errorValue = trainRec.Predictions[horizon].Evaluation[errMetric][errorField.name];
+                            console.log(errorField.name + ": " + errorValue);
+                        });
+                    }
 
                     // Write errors to console
-                    console.log("SpeedLimit MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].SpeedLimitErr);
-                    console.log("AvrVal MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].AvrValErr);
-                    console.log("PrevVal MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].PrevValErr);
-                    console.log("LinReg MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].LinregErr);
-                    console.log("RidgeReg MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].RidgeRegErr);
-                    console.log("Svmr MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].SvmrErr);
-                    console.log("NN MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].NNErr);
-                    console.log("KNN MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].KNNErr + "\n");
+                    //console.log("SpeedLimit MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].SpeedLimitErr);
+                    //console.log("AvrVal MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].AvrValErr);
+                    //console.log("PrevVal MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].PrevValErr);
+                    //console.log("LinReg MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].LinregErr);
+                    //console.log("RidgeReg MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].RidgeRegErr);
+                    //console.log("Svmr MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].SvmrErr);
+                    //console.log("NN MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].NNErr);
+                    //console.log("KNN MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].KNNErr + "\n");
 
                     ////// Write errors to console
                     //console.log("Working with rec: " + rec.DateTime.string);
@@ -534,8 +596,7 @@ resampledStore.addStreamAggr({
                     //console.log("NN MAE Error: " + nnMAE.getError());
                     //console.log("KNN MAE Error: " + knnMAE.getError() + "\n");
 
-                    // set new prevRecDay
-                    prevRecDay = rec.DateTime.day;
+
                 }
             }
         }
@@ -738,7 +799,7 @@ Service.Mobis.Utils.Stores.loadStores();
 var loadStores = [trafficLoadStore];
 //var targetStores = [trafficStore, weatherStore, eventLogsStore];
 var targetStores = [trafficStore];
-Service.Mobis.Utils.Data.importData(loadStores, targetStores, 1000);
+Service.Mobis.Utils.Data.importData(loadStores, targetStores, 10000);
 //Service.Mobis.Utils.Data.importData(loadStores, targetStores);
 
 // DEBUGGING
@@ -773,14 +834,14 @@ http.onGet("query", function (req, resp) {
 
 // Resampled store with measurements
 // Example1: http://localhost:8080/MoreHorizons/resampledStore No predictions are seen.
-// Example2: http://localhost:8080/MoreHorizons/resampledStore?printJoins=true With predictions.
+// Example2: http://localhost:8080/MoreHorizons/resampledStore?printJoins=true With predictions. (Optional parameter that sets )
+// Example3: http://localhost:8080/MoreHorizons/resampledStore?printJoins=true&depth=2 With evalueations.
 http.onGet("resampledStore", function (req, resp) {
     var store = qm.store("resampledStore");
-    //var recs = store.recs.toJSON(true, true);
-    // Check if parameter "printJoins" is "true".
-    var printJoins = (req.args.printJoins == "true") ? 1 : 0;
-    var recs = (printJoins) ? store.recs.toJSON(true, true) : store.recs.toJSON(); //How to go two levels deep?
-    console.say("printJoins: " + printJoins);
-    console.say("" + JSON.stringify(recs)); 
+    var depth = 0;
+    depth = (req.args.printJoins == "true") ? 1 : 0;
+    if (req.args.depth != null) { depth = req.args.depth; }
+    // convert to json
+    var recs = toJSON(store.recs, depth);
     return http.jsonp(req, resp, recs);
 });
