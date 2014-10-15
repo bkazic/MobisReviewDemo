@@ -308,8 +308,8 @@ var confMain = {
         { name: "AvrValErr" , predictionField: "AvrValPred" },
         { name: "LinregErr" , predictionField: "LinregPred" },
         { name: "RidgeRegErr" , predictionField: "RidgeRegPred" },
-        { name: "RidgeRegSVDErr" , predictionField: "RidgeRegSVDPred" },
-        { name: "SvmrErr" , predictionField: "SvmrPred" },
+        //{ name: "RidgeRegSVDErr" , predictionField: "RidgeRegSVDPred" },
+        //{ name: "SvmrErr" , predictionField: "SvmrPred" },
         { name: "NNErr" , predictionField: "NNPred" },
         { name: "KNNErr" , predictionField: "KNNPred" }
     ],
@@ -319,7 +319,7 @@ var confMain = {
     ]
 }
 
-// Create metrics instances
+// Create instances for evaluation metrics
 errorModels = [];
 for (var horizon in horizons) {
     errorModels[horizon] = [];
@@ -332,27 +332,28 @@ for (var horizon in horizons) {
     }
 }
 
-// Create instances for evaluation metrics
-var speedLimitMAEs = [];
-var avrValMAEs = [];
-var prevValMAEs = [];
-var linregMAEs = [];
-var ridgeRegMAEs = [];
-//var ridgeRegSVDMAEs = [];
-var svmrMAEs = [];
-var nnMAEs = [];
-var knnMAEs = [];
-for (var horizon in horizons) {
-    speedLimitMAEs[horizon] = evaluation.newMeanAbsoluteError();
-    avrValMAEs[horizon] = evaluation.newMeanAbsoluteError();
-    prevValMAEs[horizon] = evaluation.newMeanAbsoluteError();
-    linregMAEs[horizon] = evaluation.newMeanAbsoluteError();
-    ridgeRegMAEs[horizon] = evaluation.newMeanAbsoluteError();
-    //ridgeRegSVDMAEs[horizon] = evaluation.newMeanAbsoluteError();
-    svmrMAEs[horizon] = evaluation.newMeanAbsoluteError();
-    nnMAEs[horizon] = evaluation.newMeanAbsoluteError();
-    knnMAEs[horizon] = evaluation.newMeanAbsoluteError();
-}
+// OLD CODE. DELE THIS LATER.
+//// Create instances for evaluation metrics
+//var speedLimitMAEs = [];
+//var avrValMAEs = [];
+//var prevValMAEs = [];
+//var linregMAEs = [];
+//var ridgeRegMAEs = [];
+////var ridgeRegSVDMAEs = [];
+//var svmrMAEs = [];
+//var nnMAEs = [];
+//var knnMAEs = [];
+//for (var horizon in horizons) {
+//    speedLimitMAEs[horizon] = evaluation.newMeanAbsoluteError();
+//    avrValMAEs[horizon] = evaluation.newMeanAbsoluteError();
+//    prevValMAEs[horizon] = evaluation.newMeanAbsoluteError();
+//    linregMAEs[horizon] = evaluation.newMeanAbsoluteError();
+//    ridgeRegMAEs[horizon] = evaluation.newMeanAbsoluteError();
+//    //ridgeRegSVDMAEs[horizon] = evaluation.newMeanAbsoluteError();
+//    svmrMAEs[horizon] = evaluation.newMeanAbsoluteError();
+//    nnMAEs[horizon] = evaluation.newMeanAbsoluteError();
+//    knnMAEs[horizon] = evaluation.newMeanAbsoluteError();
+//}
 
 sw.tic();
 sw2.tic();
@@ -411,20 +412,20 @@ resampledStore.addStreamAggr({
 
             ///////////////// UPDATE ///////////////// 
             if (trainRecId > 0) {
-             
-                var target = rec.NumOfCars;
-
-                var predTrainId = resampledStore[trainRecId].Predictions[horizon].$id
-                Predictions.add({ $id: predTrainId, Target: target})
-                //eval(breakpoint)
-
-                // Select correct linregs model
                 var trainRec = resampledStore[trainRecId];
+                var target = rec.NumOfCars; // THIS COULD BE WRITEN IN DEF FILE
+
                 var trainHour = trainRec.DateTime.hour;
                 var trainWork = isWorkingDay(trainRec);
-                var linreg = linregs[horizon][trainWork][trainHour];
 
-                // Select correct avrgs model
+                //var predTrainId = resampledStore[trainRecId].Predictions[horizon].$id
+                //Predictions.add({ $id: predTrainId, Target: target })
+                trainRec.Predictions[horizon].Target = target;
+
+
+                // Select correct linregs model to update
+                var linreg = linregs[horizon][trainWork][trainHour];
+                // Select correct avrgs model to update
                 avr = avrgs[horizon][trainWork][trainHour];
 
                 // Testing///
@@ -432,9 +433,6 @@ resampledStore.addStreamAggr({
 
                 // update models
                 linreg.learn(ftrSpace.ftrVec(trainRec), target);
-                ////// JUST FOR TESTING
-                linreg.updateCount++;
-
                 //svmr.learn(ftrSpace.ftrVec(trainRec), target);
                 ridgeRegression.addupdate(ftrSpace.ftrVec(trainRec), target);
                 NN.learn(ftrSpace.ftrVec(trainRec), la.newVec([target]));
@@ -455,31 +453,26 @@ resampledStore.addStreamAggr({
 
                 // skip first few iterations because the error of svmr is to high
                 if (rec.$id > 50) {
-                             
-                    
 
-                    //TODO: iteriraj po: horizontu, fieldu, in se po err
-                    for (var errMetric in confMain.errorMetrics) {
+                    // Update and write error metrics
+                    confMain.errorMetrics.forEach(function (errorMetric, metricIdx) {
                         // create record with all the errors and write it to Evaluation store.
                         var errRec = {};
-                        errRec.Name = confMain.errorMetrics[errMetric].name;
-                        for (var field in confMain.errorFields) {
-                            //console.log("horizon: " + horizon + ", errMetric: " + errMetric + " field: " + field);
-                            //printj(errRec, true)
-                            //eval(breakpoint)
-                            var errorModel = errorModels[horizon][errMetric][field];
-                            var prediction = resampledStore[trainRecId].Predictions[horizon][confMain.errorFields[field].predictionField]
-                            // update
+                        errRec.Name = errorMetric.name;
+                        // Update and write all error fields.
+                        confMain.errorFields.forEach(function (errorField, fieldIdx) {
+                            var errorModel = errorModels[horizon][metricIdx][fieldIdx];
+                            var prediction = trainRec.Predictions[horizon][errorField.predictionField] // Not sure if there is any other way than with prediction Field
+                            // update model and write to errRec
                             errorModel.update(target, prediction)
-                            // write to evalueation store
-                            errRec[confMain.errorFields[field].name] = errorModel.getError();
-                        }
+                            errRec[errorField.name] = errorModel.getError();
+                        });
+                        // Add errRec to Evaluation sore, and add join to original (resampled) store
                         Evaluation.add(errRec);
-                        // Join rec with record from predictions
-                        resampledStore[trainRecId].Predictions[horizon].addJoin("Evaluation", Evaluation.last);
-                    }
+                        trainRec.Predictions[horizon].addJoin("Evaluation", Evaluation.last);
+                    });
 
-
+                    // OLD CODE. DELE THIS LATER.
                     //// Select correct evaluation model
                     //speedLimitMAE = speedLimitMAEs[horizon];
                     //avrValMAE = avrValMAEs[horizon];
@@ -491,6 +484,7 @@ resampledStore.addStreamAggr({
                     //nnMAE = nnMAEs[horizon];
                     //knnMAE = knnMAEs[horizon];
 
+                    // OLD CODE. DELE THIS LATER.
                     //// Update error metrics
                     //speedLimitMAE.update(target, resampledStore[trainRecId].Predictions[horizon].SpeedLimit);
                     //avrValMAE.update(target, resampledStore[trainRecId].Predictions[horizon].AvrValPred);
@@ -501,7 +495,7 @@ resampledStore.addStreamAggr({
                     //nnMAE.update(target, resampledStore[trainRecId].Predictions[horizon].NNPred);
                     //knnMAE.update(target, resampledStore[trainRecId].Predictions[horizon].KNNPred);
 
-
+                    // OLD CODE. DELE THIS LATER.
                     //// Collect MAE errors
                     //var predMAE = {};
                     //predMAE.Name = "MAE";
@@ -518,6 +512,7 @@ resampledStore.addStreamAggr({
                     //// Join rec with record from predictions
                     //resampledStore[trainRecId].Predictions[horizon].addJoin("Evaluation", Evaluation.last);
 
+                    // OLD CODE. DELE THIS LATER.
                     //// JUST A TEST: Collect MSRE errors. WORKS FINE.
                     ////var predMSRE = {};
                     ////predMSRE.Name = "MSRE";
@@ -542,7 +537,7 @@ resampledStore.addStreamAggr({
                 if (print && resampledStore[trainRecId].Predictions[horizon] !== null && resampledStore[trainRecId].Predictions[horizon].Evaluation[0] !== null) {
                     sw2.toc("Leap time");
                     sw2.tic();
-                    ftrSpace.ftrVec(rec).print(); // Debuging
+                    ftrSpace.ftrVec(rec).print(); // Just for Debuging
 
                     console.println("");
                     console.log("=== Predictions ===");
@@ -555,6 +550,7 @@ resampledStore.addStreamAggr({
                         console.log(predField.name + ": " + predValue);
                     });
 
+                    // OLD CODE. DELE THIS LATER.
                     //console.log("Flow:" + rec.NumOfCars);
                     //console.log("AvrVal: " + resampledStore[trainRecId].Predictions[horizon].AvrValPred);
                     //console.log("PrevVal: " + resampledStore[trainRecId].Predictions[horizon].PrevValPred);
@@ -565,16 +561,17 @@ resampledStore.addStreamAggr({
                     //console.log("KNN: " + resampledStore[trainRecId].Predictions[horizon].KNNPred + "\n");
 
                     // Report evaluation metrics in the console
-                    for (var errMetric in confMain.errorMetrics) {
+                    confMain.errorMetrics.forEach(function (errorMetric, metricIdx) {
                         console.println("");
-                        console.log("=== Evaluation metric: " + confMain.errorMetrics[errMetric].name + " ===");
+                        console.log("=== Evaluation metric: " + errorMetric.name + " ===");
                         // Print out all evaluation fields for this metric.
-                        confMain.errorFields.forEach(function (errorField) {
-                            var errorValue = trainRec.Predictions[horizon].Evaluation[errMetric][errorField.name];
+                        confMain.errorFields.forEach(function (errorField, fieldIdx) {
+                            var errorValue = trainRec.Predictions[horizon].Evaluation[metricIdx][errorField.name];
                             console.log(errorField.name + ": " + errorValue);
                         });
-                    }
+                    });
 
+                    // OLD CODE. DELE THIS LATER.
                     // Write errors to console
                     //console.log("SpeedLimit MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].SpeedLimitErr);
                     //console.log("AvrVal MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].AvrValErr);
@@ -585,6 +582,7 @@ resampledStore.addStreamAggr({
                     //console.log("NN MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].NNErr);
                     //console.log("KNN MAE Error: " + resampledStore[trainRecId].Predictions[horizon].Evaluation[0].KNNErr + "\n");
 
+                    // OLD CODE. DELE THIS LATER.
                     ////// Write errors to console
                     //console.log("Working with rec: " + rec.DateTime.string);
                     //console.log("SpeedLimit MAE Error: " + speedLimitMAE.getError());
@@ -806,22 +804,35 @@ Service.Mobis.Utils.Data.importData(loadStores, targetStores, 10000);
 eval(breakpoint)
 
 //var fields = [resampledStore.field("DateTime"),
-//              //resampledStore.field("NumOfCars"),
-//              //resampledStore.field("Speed"),
+//              resampledStore.field("NumOfCars"),
+//              resampledStore.field("Speed"),
 //              //resampledStore.field("temperature"),
 //              //resampledStore.field("visibility"),
 //              //resampledStore.field("priority"),
 //              //resampledStore.field("Target"),
-//              resampledStore.field("AvrValPred"),
-//              resampledStore.field("PrevValPred"),
-//              resampledStore.field("LinregPred"),
-//              resampledStore.field("RidgeRegPred"),
-//              resampledStore.field("NNPred"),
-//              resampledStore.field("KNNPred")
+//              //resampledStore.field("AvrValPred"),
+//              //resampledStore.field("PrevValPred"),
+//              //resampledStore.field("LinregPred"),
+//              //resampledStore.field("RidgeRegPred"),
+//              //resampledStore.field("NNPred"),
+//              //resampledStore.field("KNNPred")
 //]
 
 //viz.drawHighChartsTimeSeries(viz.highchartsConverter(fields, resampledStore.tail(300).toJSON()), "flowSimple.html", { title: { text: "Simple \"Flow\" Prediction model" }, chart: { type: 'spline', zoomType: 'x' }, });
 //viz.drawHighChartsTimeSeries(viz.highchartsConverter(fields, resampledStore.recs.toJSON(true,true)), "flowSimple.html", { title: { text: "Simple \"Flow\" Prediction model" }, chart: { type: 'spline', zoomType: 'x' }, });
+//viz.drawHighChartsTimeSeries(viz.highchartsConverter(fields, toJSON(resampledStore.tail(300),2)), "flowSimple.html", { title: { text: "Simple \"Flow\" Prediction model" }, chart: { type: 'spline', zoomType: 'x' }, });
+//viz.drawHighChartsTimeSeries(viz.highchartsConverter(fields, toJSON(resampledStore.recs)), "flowSimple.html", { title: { text: "Simple \"Flow\" Prediction model" }, chart: { type: 'spline', zoomType: 'x' }, });
+
+var converterParams = {
+    timeField: "DateTime",
+    fields: [
+        { name: "Flow", get: function (rec) { return rec.NumOfCars } },
+        { name: "LinRegPrediction+1h", get: function (rec) { return rec.Predictions[0].LinregPred } },
+        { name: "LinRegPrediction+6h", get: function (rec) { return rec.Predictions[1].LinregPred } },
+    ]
+}
+
+viz.drawHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Simple \"Flow\" Prediction model" }, chart: { type: 'spline', zoomType: 'x' }, });
 
 //////////////////////////// ONLINE (REST) SERVICES ////////////////////////////
 // Query records
