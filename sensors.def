@@ -32,19 +32,15 @@
 	{
 	"name": "Evaluation",
 	"fields": [
-	        { "name": "Name", "type": "string", "null": true }, // For example MAE, MSRE, R2, ...
-
-                { "name": "SpeedLimitErr", "type": "float", "null": true },
-                { "name": "PrevValErr", "type": "float", "null": true },
-                { "name": "AvrValErr", "type": "float", "null": true },
-                { "name": "LinregErr", "type": "float", "null": true },
-                { "name": "RidgeRegErr", "type": "float", "null": true },
-                { "name": "RidgeRegSVDErr", "type": "float", "null": true },
-                { "name": "SvmrErr", "type": "float", "null": true },
-                { "name": "NNErr", "type": "float", "null": true },
-                { "name": "KNNErr", "type": "float", "null": true }
+	        { "name": "Name", "type": "string", "null": true },
+	        
+		{ "name": "NumOfCars", "type": "float", "null": true },
+	        { "name": "Gap", "type": "float", "null": true },
+	        { "name": "Occupancy", "type": "float", "null": true },
+	        { "name": "Speed", "type": "float", "null": true },
+	        { "name": "TrafficStatus", "type": "float", "null": true }
 	]
-},
+   },
 	{
 	"name": "Predictions",
 	"fields": [
@@ -53,21 +49,12 @@
 	        { "name": "PredictionTime", "type": "datetime", "null": true }, //actual dateTime. Cannot be primary because they will overlap. But you can try latter, because it woul be usefull that we could query them by time.
 	        { "name": "PredictionHorizon", "type": "float", "null": true },
 		{ "name": "Target", "type": "float", "null": true },
-	        { "name": "NumOfCars", "type": "float", "null": true },
+	        
+		{ "name": "NumOfCars", "type": "float", "null": true },
 	        { "name": "Gap", "type": "float", "null": true },
 	        { "name": "Occupancy", "type": "float", "null": true },
 	        { "name": "Speed", "type": "float", "null": true },
-	        { "name": "TrafficStatus", "type": "float", "null": true },
-
-                { "name": "SpeedLimit", "type": "float", "null": true },
-                { "name": "PrevValPred", "type": "float", "null": true },
-                { "name": "AvrValPred", "type": "float", "null": true },
-                { "name": "LinregPred", "type": "float", "null": true },
-                { "name": "RidgeRegPred", "type": "float", "null": true },
-                { "name": "RidgeRegSVDPred", "type": "float", "null": true },
-                { "name": "SvmrPred", "type": "float", "null": true },
-                { "name": "NNPred", "type": "float", "null": true },
-                { "name": "KNNPred", "type": "float", "null": true }
+	        { "name": "TrafficStatus", "type": "float", "null": true }
 	],
         "joins": [
                 { "name": "Evaluation", "type": "index", "store": "Evaluation" }

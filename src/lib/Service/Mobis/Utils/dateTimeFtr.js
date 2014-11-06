@@ -1,32 +1,5 @@
-newDateTimeFtr = function () {
-    var dateTimeFtr = function () {
-        var size = 3;
-        var vec = la.newVec({ "vals": size });
-
-        // I THINK YOU DONT NEED THIS
-        this.update = function (newTM) {
-            var h = newTM.hour;
-            var d = newTM.dayOfWeekNum;
-            var m = newTM.month;
-            vec = la.newVec([h, d, m])
-        }
-
-        // THIS IS DEPRICATED
-        this.getFtrVec = function (rec) {
-            return vec;
-        }
-
-        this.getSize = function () {
-            return size;
-        }
-    }
-    return new dateTimeFtr();
-}
-
-test = function (rec) {
-
-    return 
-}
+Service.Mobis.Utils.Ftr = require('Service/Mobis/Utils/specialDays.js');
+var slovenianHolidayFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("Slovenian_holidays");
 
 getTmFtrs = function (rec) {
     var h = rec.DateTime.hour;
@@ -42,6 +15,16 @@ getCyclicTmFtrs = function (rec) {
     return la.newVec([ch, cd, cm])
 }
 
-exports.newDateTimeFtr = newDateTimeFtr;
+isWeekend = function (rec) {
+    return (rec.DateTime.dayOfWeekNum == 0 || rec.DateTime.dayOfWeekNum == 6) ? 1 : 0;
+}
+
+isWorkingDay = function (rec) {
+    return (isWeekend(rec) || slovenianHolidayFtr.getFtr(rec) === 1) ? 0 : 1;
+}
+
+
 exports.getTmFtrs = getTmFtrs;
 exports.getCyclicTmFtrs = getCyclicTmFtrs;
+exports.isWeekend = isWeekend;
+exports.isWorkingDay = isWorkingDay;
