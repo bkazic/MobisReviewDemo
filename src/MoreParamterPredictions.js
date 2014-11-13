@@ -91,7 +91,10 @@ var ftrSpace = analytics.newFeatureSpace([
     { type: "numeric", source: resampledStore.name, field: "Gap", normalize: false },
     { type: "numeric", source: resampledStore.name, field: "Occupancy", normalize: false },
     //{ type: "numeric", source: resampledStore.name, field: "TrafficStatus", normalize: false },
-    { type: "jsfunc", source: resampledStore.name, name: "AvrVal", fun: getAvrVal.getVal }
+    { type: "jsfunc", source: resampledStore.name, name: "AvrVal", fun: getAvrVal.getVal },
+    
+    // Can I know, which rec is calling ftrSpace?
+    //{ type: "jsfunc", source: resampledStore.name, name: "AvrVal", fun: getAvrVal.getVal }
 
     //{ type: "multinomial", source: resampledStore.name, field: "DateTime", datetime: true }
 ]);
@@ -104,24 +107,24 @@ horizons = [1, 3, 6, 9, 12, 15, 18] // if you have resampling na 1h
 //horizons = [1, 6, 1*12, 3*12, 6*12, 9*12, 12*12, 15*12, 18*12] // if you hvae resampling na 5min
 
 // Initialize RecordBuffers definiton for all horizons 
-RecordBuffers = [];
-for (var horizon in horizons) {
-    recordBuffer = {
-        name: "delay_" + horizons[horizon] + "h",
-        type: "recordBuffer",
-        horizon: horizons[horizon] + 1
-    };
-    RecordBuffers.push(recordBuffer);
-}
+//RecordBuffers = [];
+//for (var horizon in horizons) {
+//    recordBuffer = {
+//        name: "delay_" + horizons[horizon] + "h",
+//        type: "recordBuffer",
+//        horizon: horizons[horizon] + 1
+//    };
+//    RecordBuffers.push(recordBuffer);
+//}
 
-// Execute buffer agregates for all horizons
-for (var horizon in horizons) {
-    var RecordBuffer = RecordBuffers[horizon]
+//// Execute buffer agregates for all horizons
+//for (var horizon in horizons) {
+//    var RecordBuffer = RecordBuffers[horizon]
 
-    resampledStore.addStreamAggr({
-        name: RecordBuffer.name, type: RecordBuffer.type, size: RecordBuffer.horizon
-    });
-}
+//    resampledStore.addStreamAggr({
+//        name: RecordBuffer.name, type: RecordBuffer.type, size: RecordBuffer.horizon
+//    });
+//}
 
 
 //// Define Emas definiton for all horizons 
@@ -170,61 +173,71 @@ for (var horizon in horizons) {
 ///////////////// INITIALIZING ANALYTIC ALGORITHMS FOR PREDICTION //////////////////
 // Initialize analytics
 
-// create 2 * 24 avr models, for every hour
-var avrgs = [];
-for (var horizon in horizons) {
-    avrgs[horizon] = [];
-    for (var i = 0; i < 2; i++) { // 2 models: working day or not
-        avrgs[horizon][i] = [];
-        for (var j = 0; j < 24; j++) {
-            avrgs[horizon][i][j] = Service.Mobis.Utils.Baseline.newAvrVal();
-            avrgs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model
-        }
-    }
-}
+//// create 2 * 24 avr models, for every hour
+//var avrgs = [];
+//for (var horizon in horizons) {
+//    avrgs[horizon] = [];
+//    for (var i = 0; i < 2; i++) { // 2 models: working day or not
+//        avrgs[horizon][i] = [];
+//        for (var j = 0; j < 24; j++) {
+//            avrgs[horizon][i][j] = Service.Mobis.Utils.Baseline.newAvrVal();
+//            avrgs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model
+//        }
+//    }
+//}
 
-// create 2 * 24 linear regression models 
-var linregs = []; // this will be array of objects
-for (var horizon in horizons) {
-    linregs[horizon] = [];
-    for (var i = 0; i < 2; i++) { // 2 models: working day or not
-        linregs[horizon][i] = [];
-        for (var j = 0; j < 24; j++) { // 24 models: for every hour in day
-            linregs[horizon][i][j] = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 });
-            linregs[horizon][i][j]["workingDay"] = i; // asign new field "workingDay" to model
-            linregs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model
-            linregs[horizon][i][j]["updateCount"] = 0; // just for testing how many times model was updated
-        }
-    }
-}
+//// create 2 * 24 linear regression models 
+//var linregs = []; // this will be array of objects
+//for (var horizon in horizons) {
+//    linregs[horizon] = [];
+//    for (var i = 0; i < 2; i++) { // 2 models: working day or not
+//        linregs[horizon][i] = [];
+//        for (var j = 0; j < 24; j++) { // 24 models: for every hour in day
+//            linregs[horizon][i][j] = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 });
+//            linregs[horizon][i][j]["workingDay"] = i; // asign new field "workingDay" to model
+//            linregs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model
+//            linregs[horizon][i][j]["updateCount"] = 0; // just for testing how many times model was updated
+//        }
+//    }
+//}
 
 /// TESING
 var modelConf = {
-    target: "", //TODO
+    store: resampledStore,
+    predictionStore: Predictions, // Not used yet
+    evaluationStore: Evaluation, // Not used yet
+    evaluationOffset : 50, // Not used yet
+    target: resampledStore.field("NumOfCars"),
     ftrSpace: ftrSpace, // this ftrSpace should be an object
     horizons: [1, 3, 6, 9, 12, 15, 18],
     //recLinRegParameters: { "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 }, //Have to think about it how to use this
+    errorMetrics: [
+        { name: "MAE", constructor: function () { return evaluation.newMeanAbsoluteError() } },
+        { name: "RMSE", constructor: function () { return evaluation.newRootMeanSquareError() } },
+        { name: "MAPE", constructor: function () { return evaluation.newMeanAbsolutePercentageError() } },
+        { name: "R2", constructor: function () { return evaluation.newRSquareScore() } }
+    ]
 }
 
-var mobisModel = Service.Mobis.Utils.model.newModel(modelConf);
-eval(breakpoint)
 
-///////////////// INITIALIZING ERROR METRICS //////////////////
+// this two configuration files shoud be probabl merged into one?
 
 // Testing confing file
 var confMain = {
     fields: [
         { name: "NumOfCars" }, //ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
-        { name: "Gap" },
+        //{ name: "Gap" },
         { name: "Occupancy" },
         { name: "Speed" },
         { name: "TrafficStatus" },
     ],
     predictionFields: [
         { name: "NumOfCars" },
+        //{ name: "Occupancy" },
     ],
     errorFields: [
         { name: "NumOfCars", predictionField: "NumOfCars" }, // YOU DONT NEED predictionField IN THIS CASE
+        //{ name: "Occupancy", predictionField: "Occupancy" },
     ],
     errorMetrics: [
         { name: "MAE", constructor: function () { return evaluation.newMeanAbsoluteError() } },
@@ -234,18 +247,24 @@ var confMain = {
     ]
 }
 
-// Create instances for evaluation metrics
-errorModels = [];
-for (var horizon in horizons) {
-    errorModels[horizon] = [];
-    for (var errMetric in confMain.errorMetrics) {
-        errorModels[horizon][errMetric] = [];
-        for (var field in confMain.errorFields) {
-            errorModels[horizon][errMetric][field] = confMain.errorMetrics[errMetric].constructor();
-            errorModels[horizon][errMetric][field]["metric"] = confMain.errorMetrics[errMetric].name;
-        }
-    }
-}
+
+
+var mobisModel = Service.Mobis.Utils.model.newModel(modelConf);
+//eval(breakpoint)
+
+
+//// Create instances for evaluation metrics
+//errorModels = [];
+//for (var horizon in horizons) {
+//    errorModels[horizon] = [];
+//    for (var errMetric in confMain.errorMetrics) {
+//        errorModels[horizon][errMetric] = [];
+//        for (var field in confMain.errorFields) {
+//            errorModels[horizon][errMetric][field] = confMain.errorMetrics[errMetric].constructor();
+//            errorModels[horizon][errMetric][field]["metric"] = confMain.errorMetrics[errMetric].name;
+//        }
+//    }
+//}
 
 sw.tic();
 sw2.tic();
@@ -253,136 +272,157 @@ sw2.tic();
 //////////////////////////// PREDICTION AND EVALUATION ////////////////////////////
 resampledStore.addStreamAggr({
     name: "analytics",
-    onAdd: function (rec) {
-        for (var horizon in horizons) {
-            //rec.Ema1 = resampledStore.getStreamAggr(Emas[horizon][0].name).val.Val;
-            //rec.Ema2 = resampledStore.getStreamAggr(Emas[horizon][1].name).val.Val;
+    onAdd: function (rec) {    
 
-            // Get rec for training
-            trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.first;
+        console.log("Working on rec: " + rec.DateTime.string);
 
-            // Get prediction interval and time
-            var predInter = rec.DateTime.timestamp - rec.$store[trainRecId].DateTime.timestamp;
-            var predTime = tm.parse(rec.DateTime.string).add(predInter);
+        var predictions = mobisModel.predict(rec);
+        
+        // Add prediction records (one by one) to Prediction store and join it to original record
+        //predictions.forEach(function (prediction) {
+        //    Predictions.add(prediction);
+        //    rec.addJoin("Predictions", Predictions.last)
+        //})
 
-            ///////////////// PREDICTION STEP ///////////////// 
+        printj(predictions);
 
-            // Select correct avr model
-            var predHour = predTime.hour;
-            var predWork = Service.Mobis.Utils.tmFtr.isWorkingDay({ "DateTime": predTime });
-            var avr = avrgs[horizon][predWork][predHour];
+        mobisModel.update(rec);
 
-            getAvrVal.setModel(avr)
+        mobisModel.evaluate(rec);
 
-            // Select correct linregs model
-            var hour = rec.DateTime.hour;
-            var work = Service.Mobis.Utils.tmFtr.isWorkingDay(rec);
-            var linreg = linregs[horizon][work][hour];
+        
+        //eval(breakpoint);
 
-            // Create prediction record
-            var predictionRec = {};
-            predictionRec.OriginalTime = rec.DateTime.string;
-            predictionRec.PredictionTime = predTime.string;
-            predictionRec.PredictionHorizon = RecordBuffers[horizon].horizon - 1;
-            predictionRec.SpeedLimit = trafficStore.last.measuredBy.MaxSpeed;
-            predictionRec.AvrValPred = avr.getAvr();
-            predictionRec.PrevValPred = rec.NumOfCars;
-            predictionRec.NumOfCars = linreg.predict(ftrSpace.ftrVec(rec));
-            // Add prediction record to Prediction store
-            Predictions.add(predictionRec);
-            // Join this record to resampledStore record
-            rec.addJoin("Predictions", Predictions.last)
+        //for (var horizon in horizons) {
+        //    //rec.Ema1 = resampledStore.getStreamAggr(Emas[horizon][0].name).val.Val;
+        //    //rec.Ema2 = resampledStore.getStreamAggr(Emas[horizon][1].name).val.Val;
 
-            ///////////////// UPDATE STEP ///////////////// 
-            if (trainRecId > 0) {
-                var trainRec = resampledStore[trainRecId];
-                var target = rec.NumOfCars; // THIS SHOULD BE DEFINED SOMEWHERE ELSE
+        //    // Get rec for training
+        //    trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.first;
 
-                var trainHour = trainRec.DateTime.hour;
-                var trainWork = Service.Mobis.Utils.tmFtr.isWorkingDay(trainRec);
+        //    // Get prediction interval and time
+        //    var predInter = rec.DateTime.timestamp - rec.$store[trainRecId].DateTime.timestamp;
+        //    var predTime = tm.parse(rec.DateTime.string).add(predInter);
 
-                trainRec.Predictions[horizon].Target = target;
+        //    ///////////////// PREDICTION STEP ///////////////// 
+              // This should be defined in the wrapper?
+        //    // Select correct avr model
+        //    var predHour = predTime.hour;
+        //    var predWork = Service.Mobis.Utils.tmFtr.isWorkingDay({ "DateTime": predTime });
+        //    var avr = avrgs[horizon][predWork][predHour];
+        //    getAvrVal.setModel(avr)
 
-                // Select correct linregs model to update
-                linreg = linregs[horizon][trainWork][trainHour];
+        //    // Select correct linregs model
+        //    var hour = rec.DateTime.hour;
+        //    var work = Service.Mobis.Utils.tmFtr.isWorkingDay(rec);
+        //    var linreg = linregs[horizon][work][hour];
+
+        //    // Create prediction record
+        //    var predictionRec = {};
+        //    predictionRec.OriginalTime = rec.DateTime.string;
+        //    predictionRec.PredictionTime = predTime.string;
+        //    predictionRec.PredictionHorizon = RecordBuffers[horizon].horizon - 1;
+        //    predictionRec.SpeedLimit = trafficStore.last.measuredBy.MaxSpeed;
+        //    predictionRec.AvrValPred = avr.getAvr();
+        //    predictionRec.PrevValPred = rec.NumOfCars;
+        //    predictionRec.NumOfCars = linreg.predict(ftrSpace.ftrVec(rec));
+        //    // Add prediction record to Prediction store
+        //    Predictions.add(predictionRec);
+        //    // Join this record to resampledStore record
+        //    rec.addJoin("Predictions", Predictions.last)
+
+        //    ///////////////// UPDATE STEP ///////////////// 
+        //    if (trainRecId > 0) {
+        //        var trainRec = resampledStore[trainRecId];
+        //        var target = rec.NumOfCars; // THIS SHOULD BE DEFINED SOMEWHERE ELSE
+
+        //        var trainHour = trainRec.DateTime.hour;
+        //        var trainWork = Service.Mobis.Utils.tmFtr.isWorkingDay(trainRec);
+
+        //        trainRec.Predictions[horizon].Target = target;
+
+        //        // Select correct linregs model to update
+        //        linreg = linregs[horizon][trainWork][trainHour];
              
-                // Select correct avrgs model to update
-                avr = avrgs[horizon][trainWork][trainHour];
+        //        // Select correct avrgs model to update
+        //        avr = avrgs[horizon][trainWork][trainHour];
 
 
-                // Select correct avrgs model for ftr value
-                var hourAvrFtr = rec.DateTime.hour;
-                var workAvrFtr = Service.Mobis.Utils.tmFtr.isWorkingDay(rec);
-                var avrFtr = avrgs[horizon][workAvrFtr][hourAvrFtr];
-                getAvrVal.setModel(avrFtr)
+                  // This should be defined in the wrapper?
+        //        // Select correct avrgs model for ftr value
+        //        var hourAvrFtr = rec.DateTime.hour;
+        //        var workAvrFtr = Service.Mobis.Utils.tmFtr.isWorkingDay(rec);
+        //        var avrFtr = avrgs[horizon][workAvrFtr][hourAvrFtr];
+        //        getAvrVal.setModel(avrFtr)
 
-                // update models
-                linreg.learn(ftrSpace.ftrVec(trainRec), target);
+        //        // update models
+        //        linreg.learn(ftrSpace.ftrVec(trainRec), target); // target could be replaced with trainRec.Predictions[horizon].Target
 
-                avr.update(trainRec.NumOfCars);
-                avrOld.update(trainRec.NumOfCars); // TEMPORARAY: because is beeing used in preprocessing. DELETE THIS LATER and use the new method.
+        //        avr.update(trainRec.NumOfCars);
+        //        avrOld.update(trainRec.NumOfCars); // TEMPORARAY: because is beeing used in preprocessing. DELETE THIS LATER and use the new method.
 
+        //        eval(breakpoint)
 
-                ///////////////// EVALUATE STEP ///////////////// 
+        //        ///////////////// EVALUATE STEP ///////////////// 
 
-                // skip first few iterations because the error of svmr is to high
-                if (rec.$id > 50) {
+        //        // skip first few iterations because the error of svmr is to high
+        //        if (rec.$id > 50) { // Shouldnt this be (trainRec.$id) { return; }?
 
-                    // Update and write error metrics
-                    confMain.errorMetrics.forEach(function (errorMetric, metricIdx) {
-                        // create record with all the errors and write it to Evaluation store.
-                        var errRec = {};
-                        errRec.Name = errorMetric.name;
-                        // Update and write all error fields.
-                        confMain.errorFields.forEach(function (errorField, fieldIdx) {
-                            var errorModel = errorModels[horizon][metricIdx][fieldIdx];
-                            var prediction = trainRec.Predictions[horizon][errorField.name] // Not sure if there is any other way than with prediction Field. Yes, now it is.
-                            // update model and write to errRec
-                            errorModel.update(target, prediction)
-                            errRec[errorField.name] = errorModel.getError();
-                        });
-                        // Add errRec to Evaluation sore, and add join to original (resampled) store
-                        Evaluation.add(errRec);
-                        trainRec.Predictions[horizon].addJoin("Evaluation", Evaluation.last);
-                    });
+        //            // Update and write error metrics
+        //            confMain.errorMetrics.forEach(function (errorMetric, metricIdx) {
+        //                // create record with all the errors and write it to Evaluation store.
+        //                var errRec = {};
+        //                errRec.Name = errorMetric.name;
+        //                // Update and write all error fields.
+        //                confMain.errorFields.forEach(function (errorField, fieldIdx) {
+        //                    var errorModel = errorModels[horizon][metricIdx][fieldIdx];
+        //                    var prediction = trainRec.Predictions[horizon][errorField.name] // Not sure if there is any other way than with prediction Field. Yes, now it is. It has the same name.
+        //                    // update model and write to errRec
+        //                    errorModel.update(target, prediction)
+        //                    errRec[errorField.name] = errorModel.getError();
+        //                });
+        //                // Add errRec to Evaluation sore, and add join to Predictions store which is linked to Original store
+        //                Evaluation.add(errRec);
+        //                trainRec.Predictions[horizon].addJoin("Evaluation", Evaluation.last);
+        //            });
 
-                }
+        //        }
 
-                ///////////////// REPORTING STEP ///////////////// 
+        //        ///////////////// REPORTING STEP ///////////////// 
 
-                // Only one report per day
-                var print = resampledStore[resampledStore.length - 1].DateTime.day !== resampledStore[resampledStore.length - 2].DateTime.day;
-                if (print && resampledStore[trainRecId].Predictions[horizon] !== null && resampledStore[trainRecId].Predictions[horizon].Evaluation[0] !== null) {
-                    sw2.toc("Leap time");
-                    sw2.tic();
-                    ftrSpace.ftrVec(rec).print(); // Just for Debuging
+        //        // Only one report per day
+        //        var print = resampledStore[resampledStore.length - 1].DateTime.day !== resampledStore[resampledStore.length - 2].DateTime.day;
+        //        if (print && resampledStore[trainRecId].Predictions[horizon] !== null && resampledStore[trainRecId].Predictions[horizon].Evaluation[0] !== null) {
+        //            sw2.toc("Leap time");
+        //            sw2.tic();
+        //            ftrSpace.ftrVec(rec).print(); // Just for Debuging
 
-                    // Report current predictions in the console
-                    console.println("");
-                    console.log("=== Predictions ===");
-                    console.log("Working on rec: " + rec.DateTime.string );
-                    console.log("Prediction from: " + trainRec.Predictions[horizon].OriginalTime.string); // Same as trainRec.DateTime.string
-                    console.log("Target: " + target); // Same as rec.NumOfCars
+        //            // Report current predictions in the console
+        //            console.println("");
+        //            console.log("=== Predictions ===");
+        //            console.log("Working on rec: " + rec.DateTime.string );
+        //            console.log("Prediction from: " + trainRec.Predictions[horizon].OriginalTime.string); // Same as trainRec.DateTime.string
+        //            console.log("Target: " + target); // Same as rec.NumOfCars
 
-                    confMain.predictionFields.forEach(function (predField) {
-                        var predValue = trainRec.Predictions[horizon][predField.name];
-                        console.log(predField.name + ": " + predValue);
-                    });
+        //            confMain.predictionFields.forEach(function (predField) {
+        //                var predValue = trainRec.Predictions[horizon][predField.name];
+        //                console.log(predField.name + ": " + predValue);
+        //            });
 
-                    // Report evaluation metrics in the console
-                    confMain.errorMetrics.forEach(function (errorMetric, metricIdx) {
-                        console.println("");
-                        console.log("=== Evaluation metric: " + errorMetric.name + " ===");
-                        // Print out all evaluation fields for this metric.
-                        confMain.errorFields.forEach(function (errorField, fieldIdx) {
-                            var errorValue = trainRec.Predictions[horizon].Evaluation[metricIdx][errorField.name];
-                            console.log(errorField.name + ": " + errorValue);
-                        });
+        //            // Report evaluation metrics in the console
+        //            confMain.errorMetrics.forEach(function (errorMetric, metricIdx) {
+        //                console.println("");
+        //                console.log("=== Evaluation metric: " + errorMetric.name + " ===");
+        //                // Print out all evaluation fields for this metric.
+        //                confMain.errorFields.forEach(function (errorField, fieldIdx) {
+        //                    var errorValue = trainRec.Predictions[horizon].Evaluation[metricIdx][errorField.name];
+        //                    console.log(errorField.name + ": " + errorValue);
+        //                });
 
-                    });
-                }
-            }
-        }
+        //            });
+        //        }
+        //    }
+        //}
     },
     saveJson: function () { }
 });
