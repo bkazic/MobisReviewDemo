@@ -19,6 +19,7 @@ Service.Mobis.Utils.Ftr = require('Service/Mobis/Utils/specialDays.js');
 Service.Mobis.Utils.HistVals = require('Service/Mobis/Utils/histVals.js');
 Service.Mobis.Utils.tmFtr = require('Service/Mobis/Utils/dateTimeFtr.js');
 Service.Mobis.Utils.model = require('Service/Mobis/Utils/model.js');
+Service.Mobis.Utils.helper = require('Service/Mobis/Utils/helper.js');
 
 
 // Create instances for analytics
@@ -69,16 +70,18 @@ trafficStore.addStreamAggr({
 ////////////////////////////// DEFINING FEATURE SPACE //////////////////////////////
 
 // TODO: This should be moved somewhere. Probablly to this new module where proposed method will be implemented.
-var avrModel = function () {
-    var avr;
-    this.setModel = function (avr_in) {
-        avr = avr_in;
-    };
-    this.getVal = function () {
-        return avr.getAvr();
-    }
-}
-var getAvrVal = new avrModel();
+//var avrModel = function () {
+//    var avr;
+//    this.setModel = function (avr_in) {
+//        avr = avr_in;
+//    };
+//    this.getVal = function () {
+//        return avr.getAvr();
+//    }
+//}
+//var getAvrVal = new avrModel();
+
+var avrVal = Service.Mobis.Utils.helper.newDummyModel();
 
 
 // Feature space
@@ -91,7 +94,8 @@ var ftrSpace = analytics.newFeatureSpace([
     { type: "numeric", source: resampledStore.name, field: "Gap", normalize: false },
     { type: "numeric", source: resampledStore.name, field: "Occupancy", normalize: false },
     //{ type: "numeric", source: resampledStore.name, field: "TrafficStatus", normalize: false },
-    { type: "jsfunc", source: resampledStore.name, name: "AvrVal", fun: getAvrVal.getVal },
+    //{ type: "jsfunc", source: resampledStore.name, name: "AvrVal", fun: getAvrVal.getVal },
+    { type: "jsfunc", source: resampledStore.name, name: "AvrVal", fun: avrVal.getVal },
     
     // Can I know, which rec is calling ftrSpace?
     //{ type: "jsfunc", source: resampledStore.name, name: "AvrVal", fun: getAvrVal.getVal }
@@ -284,12 +288,15 @@ resampledStore.addStreamAggr({
         //    rec.addJoin("Predictions", Predictions.last)
         //})
 
-        printj(predictions);
+        //printj(predictions);
 
         mobisModel.update(rec);
 
         mobisModel.evaluate(rec);
 
+        if (rec.$id % 100 == 0) {
+            console.log("== 100 records down ==")
+        }
         
         //eval(breakpoint);
 

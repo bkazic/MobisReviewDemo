@@ -27,6 +27,7 @@ createBuffers = function (horizons, store) {
     return RecordBuffers;
 };
 
+
 createAvrgModels = function (horizons) {
     // create 2 * 24 avr models, for every hour
     var avrgs = [];
@@ -42,6 +43,9 @@ createAvrgModels = function (horizons) {
     }
     return avrgs;
 };
+
+
+///////////////////////////////////////
 
 createLinRegModels = function (horizons) {
     // create 2 * 24 linear regression models 
@@ -106,12 +110,16 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
     //this.horizons = horizons; // TODO: I think I dont need this because the variable is seen allready from the input parameter
     //this.featureSpace = ftrSpace;
     this.target = target.name;
-    
+   
     var recordBuffers = createBuffers(horizons, store);
 
     // Initialize set of models
     //createLocalModels(); // TODO: now the question is, if this models are only for this models or for everyone?
+    /////////// DEPRICATED
     this.avrgs = createAvrgModels(horizons);
+
+    this.locAvrgs = Service.Mobis.Utils.Baseline.newLocAvrgs({ fields: store.field("NumOfCars") });
+
     this.linregs = createLinRegModels(horizons); // TODO: here we could add optional parameters for linreg
     //this.errorModels = createErrorModels(horizons, errorMetrics);
     var errorModels = createErrorModels(horizons, errorMetrics);
@@ -120,7 +128,19 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
     //////////////// UPDATE STEP /////////////////
     this.update = function (rec) {
 
+        this.locAvrgs.update(rec);
+
         for (var horizon in horizons) {
+
+            /////// DEPRICATED
+            // Select correct avrgs model for ftr value
+            var hourAvrFtr = rec.DateTime.hour;
+            var workAvrFtr = Service.Mobis.Utils.tmFtr.isWorkingDay(rec);
+            var avrFtr = this.avrgs[horizon][workAvrFtr][hourAvrFtr];
+            avrFtr.update(rec[target.name])
+
+            // Set avrVal that is used by ftrExtractor (avrVal.getVal())
+            avrVal.setVal(this.locAvrgs.getVal(rec))
 
             // Get rec for training
             var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.first;
@@ -137,25 +157,9 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
                 // Select correct linregs model to update
                 linreg = this.linregs[horizon][trainWork][trainHour];
 
-                // Select correct avrgs model and update it with newest rec
-                avr = this.avrgs[horizon][trainWork][trainHour];
-                avr.update(targetVal);
-
-                // Select correct avrgs model for ftr value
-                var hourAvrFtr = rec.DateTime.hour;
-                var workAvrFtr = Service.Mobis.Utils.tmFtr.isWorkingDay(rec);
-                var avrFtr = this.avrgs[horizon][workAvrFtr][hourAvrFtr];
-                getAvrVal.setModel(avrFtr)
-
                 // update models
                 linreg.learn(ftrSpace.ftrVec(trainRec), targetVal);
                 linreg.updateCount++;
-
-                //TODO: DELETEEEETEETEETE this later. Just for debuging.
-                console.log("DEBUG", "Updating model: " + "horizon" + horizon + " trainWork: " + trainWork + " trainHour: " + trainHour)
-
-                console.log("Linregs:" + linreg.updateCount)
-                console.log("Avrgs:" + avr.count)
             }
 
         }
@@ -175,16 +179,16 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
             var predInter = rec.DateTime.timestamp - rec.$store[trainRecId].DateTime.timestamp;
             var predTime = tm.parse(rec.DateTime.string).add(predInter);
 
-            // Select correct avr model
-            var predHour = predTime.hour;
-            var predWork = Service.Mobis.Utils.tmFtr.isWorkingDay({ "DateTime": predTime });
-            var avr = this.avrgs[horizon][predWork][predHour];
-            getAvrVal.setModel(avr)
+            // Get average value for prediction time
+            var predAvrVal = this.locAvrgs.getVal({ "DateTime": predTime })
 
             // Select correct linregs model
             var hour = rec.DateTime.hour;
             var work = Service.Mobis.Utils.tmFtr.isWorkingDay(rec);
             var linreg = this.linregs[horizon][work][hour];
+
+            // Set avrVal that is used by ftrExtractor (avrVal.getVal())
+            avrVal.setVal(predAvrVal) 
 
             // Create prediction record
             var predictionRec = {};
@@ -192,7 +196,7 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
             predictionRec.PredictionTime = predTime.string;
             predictionRec.PredictionHorizon = RecordBuffers[horizon].horizon - 1;
             predictionRec.SpeedLimit = trafficStore.last.measuredBy.MaxSpeed;
-            predictionRec.AvrValPred = avr.getAvr();
+            predictionRec.AvrValPred = predAvrVal;
             predictionRec.PrevValPred = rec[target.name];
             predictionRec.NumOfCars = linreg.predict(ftrSpace.ftrVec(rec));
 
@@ -218,8 +222,8 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
             //if (trainRec.$id < evalOffset) continue; // If condition is true, stop function here.
             if (rec.$id > evalOffset) {
 
-                console.log("DEBUG", "Here we are now... Etretain us!!!")
-                eval(breakpoint)
+                //console.log("DEBUG", "Here we are now... Etretain us!!!")
+                //eval(breakpoint)
 
                 errorMetrics.forEach(function (errorMetric, metricIdx) {
                     var errRec = {};
