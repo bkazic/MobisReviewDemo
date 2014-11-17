@@ -1,19 +1,21 @@
 // import time library
 var tm = require('time');
 
-// create store definition
-var storeDef = [{
-    "name": "specialDays",
-    "fields": [
-     { "name": "Key", "type": "string" },
-     { "name": "DateString", "type": "string" }
-    ],
-    "keys": [
-     { "field": "Key", "type": "value" },
-     { "field": "DateString", "type": "value" }
-    ]
-}];
-qm.createStore(storeDef);
+if (qm.store('specialDays') == null) {
+    // create store definition
+    var storeDef = [{
+        "name": "specialDays",
+        "fields": [
+         { "name": "Key", "type": "string" },
+         { "name": "DateString", "type": "string" }
+        ],
+        "keys": [
+         { "field": "Key", "type": "value" },
+         { "field": "DateString", "type": "value" }
+        ]
+    }];
+    qm.createStore(storeDef);
+}
 
 // loads holidays to store
 var scriptNm = process.scriptNm;

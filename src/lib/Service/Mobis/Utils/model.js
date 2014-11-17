@@ -170,9 +170,10 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
             avrVal.setVal(this.locAvrgs.getVal(rec))
 
             // Get rec for training
-            var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.first;
+            var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.oldest.$id;
 
             if (trainRecId > 0) {
+
                 var trainRec = store[trainRecId];
                 var targetVal = rec[target.name]
 
@@ -198,9 +199,10 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
         var predictionRecs = [];
 
         for (var horizon in horizons) {
-
             // Get rec for training
-            var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.first;
+            //var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.first;
+            //var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.oldest;
+            var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.oldest.$id;
 
             // Get prediction interval and time
             var predInter = rec.DateTime.timestamp - rec.$store[trainRecId].DateTime.timestamp;
@@ -242,7 +244,9 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
 
         for (horizon in horizons) {
 
-            var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.first;
+            //var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.first;
+            //var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.oldest;
+            var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.oldest.$id;
             var trainRec = rec.$store[trainRecId]
 
             //if (rec.$id < evalOffset) continue;

@@ -87,8 +87,8 @@ var avrVal = Service.Mobis.Utils.helper.newDummyModel();
 // Feature space
 var ftrSpace = analytics.newFeatureSpace([
     { type: "constant", source: resampledStore.name, val: 1 },
-    { type: "numeric", source: resampledStore.name, field: "Ema1", normalize: false },
-    { type: "numeric", source: resampledStore.name, field: "Ema2", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "Ema1", normalize: false },
+    //{ type: "numeric", source: resampledStore.name, field: "Ema2", normalize: false },
     { type: "numeric", source: resampledStore.name, field: "Speed", normalize: false },
     { type: "numeric", source: resampledStore.name, field: "NumOfCars", normalize: false },
     { type: "numeric", source: resampledStore.name, field: "Gap", normalize: false },
@@ -279,6 +279,7 @@ resampledStore.addStreamAggr({
     onAdd: function (rec) {    
 
         console.log("Working on rec: " + rec.DateTime.string);
+        //eval(breakpoint)
 
         var predictions = mobisModel.predict(rec);
         
@@ -305,7 +306,7 @@ resampledStore.addStreamAggr({
         //    //rec.Ema2 = resampledStore.getStreamAggr(Emas[horizon][1].name).val.Val;
 
         //    // Get rec for training
-        //    trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.first;
+        //    trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.oldest.$id;
 
         //    // Get prediction interval and time
         //    var predInter = rec.DateTime.timestamp - rec.$store[trainRecId].DateTime.timestamp;
@@ -477,10 +478,9 @@ viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterPro(converterParams,
 
 var getLatestEvalRec = function () {
     var maxHorizon = horizons.indexOf(Math.max.apply(null, horizons));
-    var lastEvaluatedRecId = resampledStore.getStreamAggr(RecordBuffers[maxHorizon].name).val.first;
+    var lastEvaluatedRecId = resampledStore.getStreamAggr(RecordBuffers[maxHorizon].name).val.oldest.$id;
     return resampledStore[lastEvaluatedRecId]; //last record with evaluations for all horizons
 }
-
 
 //TODO: this could as well be automatized
 var converterParams = {
@@ -538,7 +538,7 @@ http.onGet("evaluation", function (req, resp) {
     var depth = 2;
     if (req.args.depth != null) { depth = req.args.depth; }
     var maxHorizon = horizons.indexOf(Math.max.apply(null, horizons));
-    var lastEvaluatedRecId = resampledStore.getStreamAggr(RecordBuffers[maxHorizon].name).val.first;
+    var lastEvaluatedRecId = resampledStore.getStreamAggr(RecordBuffers[maxHorizon].name).val.oldest.$id;
     var lastEvaluatedRec = resampledStore[lastEvaluatedRecId]; //last record with evaluations for all horizons
     var rec = toJSON(lastEvaluatedRec, depth);
     return http.jsonp(req, resp, rec)

@@ -1,3 +1,5 @@
+Service.Mobis.Utils.tmFtr = require('Service/Mobis/Utils/dateTimeFtr.js');
+
 /////////////////// 
 // AVERAGE VAL
 /////////////////// 
