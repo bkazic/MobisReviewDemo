@@ -45,8 +45,6 @@ createAvrgModels = function (horizons) {
 };
 
 
-///////////////////////////////////////
-
 createLinRegModels = function (horizons) {
     // create 2 * 24 linear regression models 
     var linregs = []; // this will be array of objects
@@ -64,6 +62,46 @@ createLinRegModels = function (horizons) {
     }
     return linregs;
 };
+
+
+///////////////////////////////// 
+// LOCALIZED LINEAR REGRESSION //
+///////////////////////////////// 
+
+// If its possible this model should have optional parameter, reather to use recLinReg or RidgeReg
+locLinRegs = function (ftrSpace, horizons) {
+
+    this.linRegs = createLinRegModels (horizons)
+
+    var selectLinReg = function (rec, horizon) {
+
+        var horizon = horizon;
+        var hour = rec.DateTime.hour;
+        var work = Service.Mobis.Utils.tmFtr.isWorkingDay(rec);
+
+        return this.linRegs[horizon][trainWork][trainHour];
+    }
+
+    this.learn = function (rec, horizon) {
+        // Select correct linregs model to update
+        linreg = selectLinReg(rec, horizon)
+
+        // update models
+        linreg.learn(ftrSpace.ftrVec(trainRec), targetVal);
+        linreg.updateCount++;
+    }
+
+    this.predict = function () {
+
+        return
+    }
+
+}
+
+newLocLinRegs = function (ftrSpace, horizons) {
+
+    return new locLinRegs(ftrSpace, horizons);
+}
 
 createErrorModels = function (horizon, errMetrics) {
     var errorModels = [];
@@ -113,14 +151,11 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
    
     var recordBuffers = createBuffers(horizons, store);
 
-    // Initialize set of models
-    //createLocalModels(); // TODO: now the question is, if this models are only for this models or for everyone?
-    /////////// DEPRICATED
-    this.avrgs = createAvrgModels(horizons);
-
     this.locAvrgs = Service.Mobis.Utils.Baseline.newLocAvrgs({ fields: store.field("NumOfCars") });
 
+    this.test = newLocLinRegs
     this.linregs = createLinRegModels(horizons); // TODO: here we could add optional parameters for linreg
+    
     //this.errorModels = createErrorModels(horizons, errorMetrics);
     var errorModels = createErrorModels(horizons, errorMetrics);
     
@@ -131,14 +166,6 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
         this.locAvrgs.update(rec);
 
         for (var horizon in horizons) {
-
-            /////// DEPRICATED
-            // Select correct avrgs model for ftr value
-            var hourAvrFtr = rec.DateTime.hour;
-            var workAvrFtr = Service.Mobis.Utils.tmFtr.isWorkingDay(rec);
-            var avrFtr = this.avrgs[horizon][workAvrFtr][hourAvrFtr];
-            avrFtr.update(rec[target.name])
-
             // Set avrVal that is used by ftrExtractor (avrVal.getVal())
             avrVal.setVal(this.locAvrgs.getVal(rec))
 
@@ -221,9 +248,6 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
             //if (rec.$id < evalOffset) continue;
             //if (trainRec.$id < evalOffset) continue; // If condition is true, stop function here.
             if (rec.$id > evalOffset) {
-
-                //console.log("DEBUG", "Here we are now... Etretain us!!!")
-                //eval(breakpoint)
 
                 errorMetrics.forEach(function (errorMetric, metricIdx) {
                     var errRec = {};
