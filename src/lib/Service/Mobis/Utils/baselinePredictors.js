@@ -1,8 +1,9 @@
 Service.Mobis.Utils.tmFtr = require('Service/Mobis/Utils/dateTimeFtr.js');
 
-/////////////////// 
-// AVERAGE VAL
-/////////////////// 
+///////////////// 
+// AVERAGE VAL //
+///////////////// 
+
 exports.newAvrVal = function () {
     createAvr = function () {
         this.count = 0;
@@ -22,9 +23,10 @@ exports.newAvrVal = function () {
 }
 
 
-/////////////////// 
-// LOCALIZED AVERAGE
-/////////////////// 
+///////////////////////
+// LOCALIZED AVERAGE //
+/////////////////////// 
+
 var createLocalizedAvrgs = function () {
     // create 2 * 24 avr models, for every hour, and for working/nonworking day
     avrgs = [];

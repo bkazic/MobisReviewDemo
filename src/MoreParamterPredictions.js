@@ -278,10 +278,10 @@ resampledStore.addStreamAggr({
     name: "analytics",
     onAdd: function (rec) {    
 
-        console.log("Working on rec: " + rec.DateTime.string);
+        //console.log("Working on rec: " + rec.DateTime.string);
         //eval(breakpoint)
 
-        var predictions = mobisModel.predict(rec);
+        //var predictions = mobisModel.predict(rec);
         
         // Add prediction records (one by one) to Prediction store and join it to original record
         //predictions.forEach(function (prediction) {
@@ -291,13 +291,17 @@ resampledStore.addStreamAggr({
 
         //printj(predictions);
 
+        mobisModel.predict(rec);
+
         mobisModel.update(rec);
 
         mobisModel.evaluate(rec);
 
-        if (rec.$id % 100 == 0) {
-            console.log("== 100 records down ==")
-        }
+        mobisModel.consoleReport(rec);
+
+        //if (rec.$id % 100 == 0) {
+        //    console.log("== 100 records down ==");
+        //};
         
         //eval(breakpoint);
 

@@ -116,31 +116,31 @@ createErrorModels = function (horizon, errMetrics) {
 };
 
 
-createLocalModels = function () {
-    // create 2 * 24 linear regression models 
-    var linregs = []; // this will be array of objects
-    var avrgs = [];
-    for (var horizon in horizons) {
-        linregs[horizon] = [];
-        avrgs[horizon] = [];
-        for (var i = 0; i < 2; i++) { // 2 models: working day or not
-            linregs[horizon][i] = [];
-            avrgs[horizon][i] = [];
-            for (var j = 0; j < 24; j++) { // 24 models: for every hour in day
-                avrgs[horizon][i][j] = Service.Mobis.Utils.Baseline.newAvrVal();
-                avrgs[horizon][i][j]["workingDay"] = i; // asign new field "workingDay" to model
-                avrgs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model
-                avrgs[horizon][i][j]["updateCount"] = 0; // just for testing how many times model was updated
+//createLocalModels = function () {
+//    // create 2 * 24 linear regression models 
+//    var linregs = []; // this will be array of objects
+//    var avrgs = [];
+//    for (var horizon in horizons) {
+//        linregs[horizon] = [];
+//        avrgs[horizon] = [];
+//        for (var i = 0; i < 2; i++) { // 2 models: working day or not
+//            linregs[horizon][i] = [];
+//            avrgs[horizon][i] = [];
+//            for (var j = 0; j < 24; j++) { // 24 models: for every hour in day
+//                avrgs[horizon][i][j] = Service.Mobis.Utils.Baseline.newAvrVal();
+//                avrgs[horizon][i][j]["workingDay"] = i; // asign new field "workingDay" to model
+//                avrgs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model
+//                avrgs[horizon][i][j]["updateCount"] = 0; // just for testing how many times model was updated
 
-                linregs[horizon][i][j] = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 });              
-                linregs[horizon][i][j]["workingDay"] = i; // asign new field "workingDay" to model
-                linregs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model
-                linregs[horizon][i][j]["updateCount"] = 0; // just for testing how many times model was updated
-            }
-        }
-    }
-    // Maybe I should return linregs and avrgs, if I cannot see this models inside model function bellow.
-}
+//                linregs[horizon][i][j] = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 });              
+//                linregs[horizon][i][j]["workingDay"] = i; // asign new field "workingDay" to model
+//                linregs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model
+//                linregs[horizon][i][j]["updateCount"] = 0; // just for testing how many times model was updated
+//            }
+//        }
+//    }
+//    // Maybe I should return linregs and avrgs, if I cannot see this models inside model function bellow.
+//}
 
 
 model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, target, evalOffset, errorMetrics) {
@@ -148,44 +148,36 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
     //this.horizons = horizons; // TODO: I think I dont need this because the variable is seen allready from the input parameter
     //this.featureSpace = ftrSpace;
     this.target = target.name;
-   
     var recordBuffers = createBuffers(horizons, store);
 
     this.locAvrgs = Service.Mobis.Utils.Baseline.newLocAvrgs({ fields: store.field("NumOfCars") });
-
-    this.test = newLocLinRegs
     this.linregs = createLinRegModels(horizons); // TODO: here we could add optional parameters for linreg
-    
     //this.errorModels = createErrorModels(horizons, errorMetrics);
     var errorModels = createErrorModels(horizons, errorMetrics);
-    
 
     //////////////// UPDATE STEP /////////////////
     this.update = function (rec) {
 
+        // Update localized average with new record
         this.locAvrgs.update(rec);
 
         for (var horizon in horizons) {
-            // Set avrVal that is used by ftrExtractor (avrVal.getVal())
-            avrVal.setVal(this.locAvrgs.getVal(rec))
-
             // Get rec for training
             var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.oldest.$id;
 
             if (trainRecId > 0) {
 
                 var trainRec = store[trainRecId];
-                var targetVal = rec[target.name]
-
                 var trainHour = trainRec.DateTime.hour;
                 var trainWork = Service.Mobis.Utils.tmFtr.isWorkingDay(trainRec);
-                    
+                var targetVal = rec[target.name]
                 trainRec.Predictions[horizon].Target = targetVal;
 
                 // Select correct linregs model to update
                 linreg = this.linregs[horizon][trainWork][trainHour];
 
-                // update models
+                // Update models
+                avrVal.setVal(this.locAvrgs.getVal(rec)) // Set avrVal that is used by ftrExtractor (avrVal.getVal())
                 linreg.learn(ftrSpace.ftrVec(trainRec), targetVal);
                 linreg.updateCount++;
             }
@@ -200,16 +192,11 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
 
         for (var horizon in horizons) {
             // Get rec for training
-            //var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.first;
-            //var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.oldest;
             var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.oldest.$id;
 
             // Get prediction interval and time
             var predInter = rec.DateTime.timestamp - rec.$store[trainRecId].DateTime.timestamp;
             var predTime = tm.parse(rec.DateTime.string).add(predInter);
-
-            // Get average value for prediction time
-            var predAvrVal = this.locAvrgs.getVal({ "DateTime": predTime })
 
             // Select correct linregs model
             var hour = rec.DateTime.hour;
@@ -217,7 +204,8 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
             var linreg = this.linregs[horizon][work][hour];
 
             // Set avrVal that is used by ftrExtractor (avrVal.getVal())
-            avrVal.setVal(predAvrVal) 
+            var predAvrVal = this.locAvrgs.getVal({ "DateTime": predTime })
+            avrVal.setVal(predAvrVal)
 
             // Create prediction record
             var predictionRec = {};
@@ -234,7 +222,7 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
 
             predictionStore.add(predictionRec);
             rec.addJoin("Predictions", predictionStore.last)
-        }
+        };
 
         return predictionRecs;
     };
@@ -242,37 +230,73 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
     ///////////////// EVALUATION STEP ///////////////// 
     this.evaluate = function (rec) {
 
+        if (rec.$id < evalOffset) return; // If condition is true, stop function here.
+
         for (horizon in horizons) {
 
-            //var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.first;
-            //var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.oldest;
             var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.oldest.$id;
             var trainRec = rec.$store[trainRecId]
 
-            //if (rec.$id < evalOffset) continue;
-            //if (trainRec.$id < evalOffset) continue; // If condition is true, stop function here.
-            if (rec.$id > evalOffset) {
+            errorMetrics.forEach(function (errorMetric, metricIdx) {
+                var errRec = {};
+                errRec["Name"] = errorMetric.name;
 
+                // find correct model and prediction
+                //var errorModel = this.errorModels[horizon][metricIdx];
+                var errorModel = errorModels[horizon][metricIdx];
+                var prediction = trainRec.Predictions[horizon][target.name];
+                // update model and write to errRec
+                errorModel.update(rec[target.name], prediction);
+                errRec[target.name] = errorModel.getError();
+                // add errRec to Evaluation sore, and add join to Predictions store which is linked to Original store
+                evaluationStore.add(errRec);
+                trainRec.Predictions[horizon].addJoin("Evaluation", evaluationStore.last);
+            })
+        }
+    }
+
+    this.consoleReport = function (rec) {
+
+        if (rec.$id < evalOffset) return; // If condition is true, stop function here.
+        if (resampledStore[resampledStore.length - 1].DateTime.day !== resampledStore[resampledStore.length - 2].DateTime.day) {
+            console.println("");
+            console.log("\n==================================\n=== REC: " + rec.DateTime.string + " ===\n==================================");
+        }
+        
+        for (horizon in horizons) {
+
+            var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.oldest.$id;
+            var trainRec = rec.$store[trainRecId]
+
+            // Only one report per day
+            var print = resampledStore[resampledStore.length - 1].DateTime.day !== resampledStore[resampledStore.length - 2].DateTime.day;
+            if (print && resampledStore[trainRecId].Predictions[horizon] !== null && resampledStore[trainRecId].Predictions[horizon].Evaluation[0] !== null) {
+
+                // Report current predictions in the console
+                console.println("");
+                console.log("=== Predictions ===");
+                console.log("Working on rec: " + rec.DateTime.string);
+                console.log("Prediction from: " + trainRec.Predictions[horizon].OriginalTime.string); // Same as trainRec.DateTime.string             
+                console.log("Prediction horizon: " + trainRec.Predictions[horizon].PredictionHorizon)
+                console.log("Target: " + trainRec.Predictions[horizon].Target); // Same as rec[target.name]
+                confMain.predictionFields.forEach(function (predField) {
+                    var predValue = trainRec.Predictions[horizon][predField.name];
+                    console.log(predField.name + ": " + predValue);
+                });
+
+                // Report evaluation metrics in the console
+                console.println("");
+                console.log("=== Evaluation ===");
                 errorMetrics.forEach(function (errorMetric, metricIdx) {
-                    var errRec = {};
-                    errRec["Name"] = errorMetric.name;
-
-                    // find correct model and prediction
-                    //var errorModel = this.errorModels[horizon][metricIdx];
-                    var errorModel = errorModels[horizon][metricIdx];
-                    var prediction = trainRec.Predictions[horizon][target.name];
-                    // update model and write to errRec
-                    errorModel.update(rec[target.name], prediction);
-                    errRec[target.name] = errorModel.getError();
-                    // add errRec to Evaluation sore, and add join to Predictions store which is linked to Original store
-                    evaluationStore.add(errRec);
-                    trainRec.Predictions[horizon].addJoin("Evaluation", evaluationStore.last);
-                })
+                    confMain.errorFields.forEach(function (errorField, fieldIdx) {
+                        var errorValue = trainRec.Predictions[horizon].Evaluation[metricIdx][errorField.name];
+                        console.log(errorMetric.name + ": " + errorValue);
+                    });
+                });
             }
         }
     }
-}
-
+};
 
 exports.newModel = function (modelConf) {
 
@@ -287,9 +311,6 @@ exports.newModel = function (modelConf) {
 
     return new model(horizons, ftrSpace, store, predictionStore, evaluationStore, target, evalOffset, errorMetrics);
 }
-
-//exports.newModel = newModel;
-
 
 // About this module
 exports.about = function () {
