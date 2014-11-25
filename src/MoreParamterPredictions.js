@@ -116,7 +116,7 @@ var modelConf = {
     predictionStore: Predictions,
     evaluationStore: Evaluation, 
     evaluationOffset : 50,
-    target: resampledStore.field("NumOfCars"),
+    target: resampledStore.field("Speed"),
     ftrSpace: ftrSpace, // this ftrSpace should be an object
     horizons: [1, 3, 6, 9, 12, 15, 18],
     recLinRegParameters: { "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 }, // Not used yet. //Have to think about it how to use this
@@ -141,11 +141,11 @@ var confMain = {
         { name: "TrafficStatus" }, //ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
     ],
     predictionFields: [
-        { name: "NumOfCars" },
+        { name: "Speed" }, //ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
         //{ name: "Occupancy" },
     ],
     errorFields: [
-        { name: "NumOfCars", predictionField: "NumOfCars" }, // YOU DONT NEED predictionField IN THIS CASE
+        { name: "Speed", predictionField: "Speed" }, // YOU DONT NEED predictionField IN THIS CASE
         //{ name: "Occupancy", predictionField: "Occupancy" },
     ],
     errorMetrics: [
@@ -168,6 +168,7 @@ resampledStore.addStreamAggr({
         //eval(breakpoint)
         //if (rec.$id % 100 == 0) {
         //    console.log("== 100 records down ==");
+        //    eval(breakpoint)
         //};
 
         //var predictions = mobisModel.predict(rec);    
@@ -200,72 +201,87 @@ Service.Mobis.Utils.Data.importData(loadStores, targetStores, 10000);
 // DEBUGGING
 //eval(breakpoint)
 
-viz.makeHighChartsTemplate("Flow.html", 4);
-var converterParams = {
-    timeField: "DateTime",
-    fields: [
-        { name: "Flow", get: function (rec) { return rec.NumOfCars }, getTm: function (rec) { return rec.DateTime } },
-        { name: "PredictedFlow", get: function (rec) { return rec.Predictions[0].NumOfCars }, getTm: function (rec) { return rec.Predictions[0].PredictionTime } },
-    ]
+var visualize = function (htmlName, displayParam) {
+    viz.makeHighChartsTemplate(htmlName, 4);
+    var converterParams = {
+        timeField: "DateTime",
+        fields: [
+            { name: "Actual", get: function (rec) { return rec[displayParam] }, getTm: function (rec) { return rec.DateTime } },
+            { name: "Predicted", get: function (rec) { return rec.Predictions[0][displayParam] }, getTm: function (rec) { return rec.Predictions[0].PredictionTime } },
+        ]
+    }
+
+    ////if (fs.exists("flowSimple.html")) { fs.del("flowSimple.html"); }
+    ////viz.drawHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: localized linear regression models" }, chart: { type: 'spline', zoomType: 'x' }, });
+    ////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: localized linear regression models" }, chart: { type: 'spline', zoomType: 'x' }, });
+
+    viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), htmlName, { title: { text: "Predictions: 1h" }, chart: { type: 'spline', zoomType: 'x' }, });
+
+    var converterParams = {
+        timeField: "DateTime",
+        fields: [
+            { name: "Actual", get: function (rec) { return rec[displayParam] }, getTm: function (rec) { return rec.DateTime } },
+            { name: "Predicted", get: function (rec) { return rec.Predictions[6][displayParam] }, getTm: function (rec) { return rec.Predictions[6].PredictionTime } },
+        ]
+    }
+
+    ////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: errors" }, chart: { type: 'spline', zoomType: 'x' }, });
+    viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), htmlName, { title: { text: "Predictions: 18h" }, chart: { type: 'spline', zoomType: 'x' }, });
+
+    var getLatestEvalRec = function () {
+        var maxHorizon = horizons.indexOf(Math.max.apply(null, horizons));
+        var lastEvaluatedRecId = resampledStore.getStreamAggr(RecordBuffers[maxHorizon].name).val.oldest.$id;
+        return resampledStore[lastEvaluatedRecId]; //last record with evaluations for all horizons
+    }
+
+    //TODO: this could as well be automatized
+    var converterParams = {
+        fields: [
+            { name: displayParam, get: function (rec) { try { return rec.Evaluation[0][displayParam] } catch (err) { return null } } },
+        ]
+    }
+    ////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: errors" }, chart: { type: 'spline', zoomType: 'x' }, });
+    viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterColumn(converterParams, toJSON(getLatestEvalRec(), 2)), htmlName,
+        {
+            title: { text: "Model Comparisons" }, chart: { type: 'column' }, xAxis: { categories: horizons, title: { text: 'Horizon' } },
+            yAxis: { min: 0, title: { text: 'MAE' } }, plotOptions: {
+                column: {
+                    pointPadding: 0.2, borderWidth: 0, dataLabels: {
+                        enabled: true, rotation: -90, align: 'left', x: 4, y: -10, format: '{point.y:.1f}'
+                    }
+                }
+            },
+        });
+
+    var converterParams = {
+        fields: [
+            { name: displayParam, get: function (rec) { try { return rec.Evaluation[3][displayParam] } catch (err) { return null } } },
+        ]
+    }
+    ////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: errors" }, chart: { type: 'spline', zoomType: 'x' }, });
+    viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterColumn(converterParams, toJSON(getLatestEvalRec(), 2)), htmlName,
+        {
+            title: { text: "Model Comparisons" }, chart: { type: 'column' }, xAxis: { categories: horizons, title: { text: 'Horizon' } },
+            yAxis: { min: 0, title: { text: 'R2' } }, plotOptions: {
+                column: {
+                    pointPadding: 0.2, borderWidth: 0, dataLabels: {
+                        enabled: true, rotation: -90, align: 'left', x: 4, y: -10, format: '{point.y:.3f}'
+                    }
+                }
+            },
+        });
 }
 
-////if (fs.exists("flowSimple.html")) { fs.del("flowSimple.html"); }
-////viz.drawHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: localized linear regression models" }, chart: { type: 'spline', zoomType: 'x' }, });
-////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: localized linear regression models" }, chart: { type: 'spline', zoomType: 'x' }, });
-
-viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "Comparisons.html", { title: { text: "Flow predictions: 1h" }, chart: { type: 'spline', zoomType: 'x' }, });
-
-var converterParams = {
-    timeField: "DateTime",
-    fields: [
-        { name: "Flow", get: function (rec) { return rec.NumOfCars }, getTm: function (rec) { return rec.DateTime } },
-        { name: "PredictedFlow", get: function (rec) { return rec.Predictions[6].NumOfCars }, getTm: function (rec) { return rec.Predictions[6].PredictionTime } },
-    ]
-}
-
-////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: errors" }, chart: { type: 'spline', zoomType: 'x' }, });
-viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "Comparisons.html", { title: { text: "Flow predictions: 18h" }, chart: { type: 'spline', zoomType: 'x' }, });
-
-var getLatestEvalRec = function () {
-    var maxHorizon = horizons.indexOf(Math.max.apply(null, horizons));
-    var lastEvaluatedRecId = resampledStore.getStreamAggr(RecordBuffers[maxHorizon].name).val.oldest.$id;
-    return resampledStore[lastEvaluatedRecId]; //last record with evaluations for all horizons
-}
-
-//TODO: this could as well be automatized
-var converterParams = {
-    fields: [
-        { name: "NumOfCars", get: function (rec) { try { return rec.Evaluation[0].NumOfCars } catch (err) { return null } } },
-    ]
-}
-////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: errors" }, chart: { type: 'spline', zoomType: 'x' }, });
-viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterColumn(converterParams, toJSON(getLatestEvalRec(), 2)), "Comparisons.html",
-    {
-        title: { text: "Model Comparisons" }, chart: { type: 'column' }, xAxis: { categories: horizons, title: { text: 'Horizon' } },
-        yAxis: { min: 0, title: { text: 'MAE' } }, plotOptions: { column: { pointPadding: 0.2, borderWidth: 0, dataLabels: {
-                    enabled: true, rotation: -90, align: 'left', x: 4, y: -10, format: '{point.y:.1f}' } } }, 
-    });
-
-var converterParams = {
-    fields: [
-        { name: "NumOfCars", get: function (rec) { try { return rec.Evaluation[3].NumOfCars } catch (err) { return null } } },
-    ]
-}
-////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: errors" }, chart: { type: 'spline', zoomType: 'x' }, });
-viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterColumn(converterParams, toJSON(getLatestEvalRec(), 2)), "Comparisons.html",
-    {
-        title: { text: "Model Comparisons" }, chart: { type: 'column' }, xAxis: { categories: horizons, title: { text: 'Horizon' } },
-        yAxis: { min: 0, title: { text: 'R2' } }, plotOptions: { column: { pointPadding: 0.2, borderWidth: 0, dataLabels: {
-                    enabled: true, rotation: -90, align: 'left', x: 4, y: -10, format: '{point.y:.3f}' } } },
-    });
-
-
+//var htmlName = "Occupancy.html"
+var htmlName = modelConf.target.name + ".html"
+var displayParam = modelConf.target.name;
+visualize(htmlName, displayParam);
 
 //////////////////////////// ONLINE (REST) SERVICES ////////////////////////////
 // Query records
 http.onGet("query", function (req, resp) {
     jsonData = JSON.parse(req.args.data);
-    console.say("" + JSON.stringify(jsonData)); // toJSON(true,true) ne dela
+    console.say("" + JSON.stringify(jsonData));
     var recs = qm.search(jsonData);
     return http.jsonp(req, resp, recs);
 });

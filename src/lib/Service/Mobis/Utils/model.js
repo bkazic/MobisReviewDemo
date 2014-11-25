@@ -189,7 +189,7 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
             predictionRec.SpeedLimit = trafficStore.last.measuredBy.MaxSpeed;
             predictionRec.AvrValPred = predAvrVal;
             predictionRec.PrevValPred = rec[target.name];
-            predictionRec.NumOfCars = linreg.predict(ftrSpace.ftrVec(rec));
+            predictionRec[target.name] = linreg.predict(ftrSpace.ftrVec(rec));
 
             // Add prediction record to predictions array
             predictionRecs.push(predictionRec);
@@ -253,10 +253,11 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
                 console.log("Prediction from: " + trainRec.Predictions[horizon].OriginalTime.string); // Same as trainRec.DateTime.string             
                 console.log("Prediction horizon: " + trainRec.Predictions[horizon].PredictionHorizon)
                 console.log("Target: " + trainRec.Predictions[horizon].Target); // Same as rec[target.name]
-                confMain.predictionFields.forEach(function (predField) {
-                    var predValue = trainRec.Predictions[horizon][predField.name];
-                    console.log(predField.name + ": " + predValue);
-                });
+                console.log(target.name + ": " + trainRec.Predictions[horizon][target.name]);
+                //confMain.predictionFields.forEach(function (predField) {
+                //    var predValue = trainRec.Predictions[horizon][predField.name];
+                //    console.log(predField.name + ": " + predValue);
+                //});
 
                 // Report evaluation metrics in the console
                 console.println("");
