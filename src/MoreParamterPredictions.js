@@ -110,16 +110,36 @@ var ftrSpace = analytics.newFeatureSpace([
 horizons = [1, 3, 6, 9, 12, 15, 18] // if you have resampling na 1h
 //horizons = [1, 6, 1*12, 3*12, 6*12, 9*12, 12*12, 15*12, 18*12] // if you hvae resampling na 5min
 
-/// TESING
+/// CONFIGURATION OBJECT
 var modelConf = {
-    store: resampledStore,
-    predictionStore: Predictions,
-    evaluationStore: Evaluation, 
-    evaluationOffset : 50,
+    stores: {
+        "sourceStore": resampledStore,
+        "predictionStore": Predictions,
+        "evaluationStore": Evaluation,
+    },
+    fields: [ // From this, feature space could be build.
+        { name: "NumOfCars" },
+        { name: "Gap" }, 
+        { name: "Occupancy" },
+        { name: "Speed" },
+        { name: "TrafficStatus" },
+    ],
+    predictionFields: [ //TODO: Not sure, if I want to use names of fields or fields??
+        { field: resampledStore.field("NumOfCars") },
+        { field: resampledStore.field("Occupancy") },
+        { field: resampledStore.field("Speed") },
+    ],
+
+    ftrSpace: ftrSpace, //TODO: Later this will be done automatically
     target: resampledStore.field("Speed"),
-    ftrSpace: ftrSpace, // this ftrSpace should be an object
-    horizons: [1, 3, 6, 9, 12, 15, 18],
-    recLinRegParameters: { "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 }, // Not used yet. //Have to think about it how to use this
+
+    otherParams: { // This are optional parameters
+        evaluationOffset: 50,
+    },
+    
+    predictionHorizons: [1, 3, 6, 9, 12, 15, 18],
+
+    //recLinRegParameters: { "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 }, // Not used yet. //Have to think about it how to use this
     errorMetrics: [
         { name: "MAE", constructor: function () { return evaluation.newMeanAbsoluteError() } },
         { name: "RMSE", constructor: function () { return evaluation.newRootMeanSquareError() } },
@@ -132,16 +152,17 @@ var modelConf = {
 // this two configuration files shoud be probabl merged into one?
 
 // Testing confing file
+//ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
 var confMain = {
     fields: [ // From this, feature space could be build.
-        { name: "NumOfCars" }, //ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
-        //{ name: "Gap" }, //ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
-        { name: "Occupancy" }, //ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
-        { name: "Speed" }, //ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
-        { name: "TrafficStatus" }, //ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
+        { name: "NumOfCars" }, 
+        //{ name: "Gap" }, 
+        { name: "Occupancy" },
+        { name: "Speed" }, 
+        { name: "TrafficStatus" }, 
     ],
     predictionFields: [
-        { name: "Speed" }, //ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
+        { name: "Speed" }, 
         //{ name: "Occupancy" },
     ],
     errorFields: [

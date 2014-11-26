@@ -229,6 +229,7 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
         }
     }
 
+    ///////////////// CONSOLE REPORT ///////////////// 
     this.consoleReport = function (rec) {
 
         if (rec.$id < evalOffset) return; // If condition is true, stop function here.
@@ -275,13 +276,13 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
 
 exports.newModel = function (modelConf) {
 
-    var horizons = (modelConf.horizons == null) ? 1 : modelConf.horizons;
+    var horizons = (modelConf.predictionHorizons == null) ? 1 : modelConf.predictionHorizons;
     var ftrSpace = modelConf.ftrSpace; // TODO: what to do if it is not defined (if it is null) ?????
-    var store = modelConf.store;
-    var predictionStore = modelConf.predictionStore;
-    var evaluationStore = modelConf.evaluationStore;
+    var store = modelConf.stores.sourceStore;
+    var predictionStore = modelConf.stores.predictionStore;
+    var evaluationStore = modelConf.stores.evaluationStore;
     var target = modelConf.target;
-    var evalOffset = (modelConf.horizons == null) ? 50 : modelConf.evaluationOffset;
+    var evalOffset = (modelConf.otherParams.evaluationOffset == null) ? 50 : modelConf.otherParams.evaluationOffset;
     var errorMetrics = modelConf.errorMetrics;
 
     return new model(horizons, ftrSpace, store, predictionStore, evaluationStore, target, evalOffset, errorMetrics);
