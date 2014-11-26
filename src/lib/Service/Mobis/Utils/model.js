@@ -124,9 +124,9 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
     this.target = target.name;
     var recordBuffers = createBuffers(horizons, store);
 
-    this.locAvrgs = Service.Mobis.Utils.Baseline.newLocAvrgs({ fields: store.field(this.target) });
+    this.locAvrgs = Service.Mobis.Utils.Baseline.newLocAvrgs({ fields: target });
     this.linregs = createLinRegModels(horizons); // TODO: here we could add optional parameters for linreg
-    //this.errorModels = createErrorModels(horizons, errorMetrics);
+
     var errorModels = createErrorModels(horizons, errorMetrics);
 
     //////////////// UPDATE STEP /////////////////
@@ -264,10 +264,12 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
                 console.println("");
                 console.log("=== Evaluation ===");
                 errorMetrics.forEach(function (errorMetric, metricIdx) {
-                    confMain.errorFields.forEach(function (errorField, fieldIdx) {
-                        var errorValue = trainRec.Predictions[horizon].Evaluation[metricIdx][errorField.name];
-                        console.log(errorMetric.name + ": " + errorValue);
-                    });
+                    //predictionFields.forEach(function (errorField, fieldIdx) { //TODO: this will be used later.
+                    //    var errorValue = trainRec.Predictions[horizon].Evaluation[metricIdx][errorField.name];
+                    //    console.log(errorMetric.name + ": " + errorValue);
+                    //});
+                    var errorValue = trainRec.Predictions[horizon].Evaluation[metricIdx][target.name];
+                    console.log(errorMetric.name + ": " + errorValue);
                 });
             }
         }

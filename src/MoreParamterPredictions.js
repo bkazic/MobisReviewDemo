@@ -117,6 +117,7 @@ var modelConf = {
         "predictionStore": Predictions,
         "evaluationStore": Evaluation,
     },
+    //ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
     fields: [ // From this, feature space could be build.
         { name: "NumOfCars" },
         { name: "Gap" }, 
@@ -124,6 +125,7 @@ var modelConf = {
         { name: "Speed" },
         { name: "TrafficStatus" },
     ],
+    //ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
     predictionFields: [ //TODO: Not sure, if I want to use names of fields or fields??
         { field: resampledStore.field("NumOfCars") },
         { field: resampledStore.field("Occupancy") },
@@ -131,7 +133,7 @@ var modelConf = {
     ],
 
     ftrSpace: ftrSpace, //TODO: Later this will be done automatically
-    target: resampledStore.field("Speed"),
+    target: resampledStore.field("NumOfCars"),
 
     otherParams: { // This are optional parameters
         evaluationOffset: 50,
