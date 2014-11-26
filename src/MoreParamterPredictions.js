@@ -179,8 +179,6 @@ var confMain = {
     ]
 }
 
-
-
 var mobisModel = Service.Mobis.Utils.model.newModel(modelConf);
 
 //////////////////////////// PREDICTION AND EVALUATION ////////////////////////////
@@ -194,16 +192,16 @@ resampledStore.addStreamAggr({
         //    eval(breakpoint)
         //};
 
-        //var predictions = mobisModel.predict(rec);    
-        //printj(predictions);
+        var predictions = mobisModel.predict(rec);    
+        printj(predictions);
 
-        mobisModel.predict(rec);
+        //mobisModel.predict(rec);
 
         mobisModel.update(rec);
 
-        mobisModel.evaluate(rec);
+        //mobisModel.evaluate(rec);
 
-        mobisModel.consoleReport(rec);
+        //mobisModel.consoleReport(rec);
 
     },
     saveJson: function () { }

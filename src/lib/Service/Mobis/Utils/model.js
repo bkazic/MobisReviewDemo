@@ -28,35 +28,69 @@ createBuffers = function (horizons, store) {
 };
 
 
-createAvrgModels = function (horizons) {
-    // create 2 * 24 avr models, for every hour
+// DELETE THIS //
+//createAvrgModels = function (horizons) {
+//    // create 2 * 24 avr models, for every hour
+//    var avrgs = [];
+//    for (var horizon in horizons) {
+//        avrgs[horizon] = [];
+//        for (var i = 0; i < 2; i++) { // 2 models: working day or not
+//            avrgs[horizon][i] = [];
+//            for (var j = 0; j < 24; j++) {
+//                avrgs[horizon][i][j] = Service.Mobis.Utils.Baseline.newAvrVal();
+//                avrgs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model
+//            };
+//        };
+//    };
+//    return avrgs;
+//};
+
+createAvrgModels = function (targetFields) {
+    // create set of locAvr models, for every target field
     var avrgs = [];
-    for (var horizon in horizons) {
-        avrgs[horizon] = [];
-        for (var i = 0; i < 2; i++) { // 2 models: working day or not
-            avrgs[horizon][i] = [];
-            for (var j = 0; j < 24; j++) {
-                avrgs[horizon][i][j] = Service.Mobis.Utils.Baseline.newAvrVal();
-                avrgs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model
-            };
-        };
-    };
+    targetFields.forEach(function (target, targetIdx) {
+        avrgs[targetIdx] = Service.Mobis.Utils.Baseline.newLocAvrgs({ fields: target.field });
+        avrgs[targetIdx]["predictionField"] = target.field.name;
+    })
     return avrgs;
-};
+}
 
+// DELETE THIS // 
+//createLinRegModels = function (horizons) {
+//    // create 2 * 24 linear regression models 
+//    var linregs = []; // this will be array of objects
+//    for (var horizon in horizons) {
+//        linregs[horizon] = [];
+//        for (var i = 0; i < 2; i++) { // 2 models: working day or not
+//            linregs[horizon][i] = [];
+//            for (var j = 0; j < 24; j++) { // 24 models: for every hour in day
+//                linregs[horizon][i][j] = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 });
+//                linregs[horizon][i][j]["workingDay"] = i; // asign new field "workingDay" to model (just for demonstrational use)
+//                linregs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model (just for demonstrational use)
+//                linregs[horizon][i][j]["updateCount"] = 0; // how many times model was updated (just for demonstrational use)
+//            }
+//        }
+//    }
+//    return linregs;
+//};
 
-createLinRegModels = function (horizons) {
-    // create 2 * 24 linear regression models 
+createLinRegModels = function (fields, horizons) {
+    // create set of linear regression models 
     var linregs = []; // this will be array of objects
-    for (var horizon in horizons) {
-        linregs[horizon] = [];
-        for (var i = 0; i < 2; i++) { // 2 models: working day or not
-            linregs[horizon][i] = [];
-            for (var j = 0; j < 24; j++) { // 24 models: for every hour in day
-                linregs[horizon][i][j] = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 });
-                linregs[horizon][i][j]["workingDay"] = i; // asign new field "workingDay" to model (just for demonstrational use)
-                linregs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model (just for demonstrational use)
-                linregs[horizon][i][j]["updateCount"] = 0; // how many times model was updated (just for demonstrational use)
+    for (var field in fields) { // models for prediction fields
+        linregs[field] = [];
+        for (var horizon in horizons) { // models for horizons
+            linregs[field][horizon] = [];
+            for (var i = 0; i < 2; i++) { // 2 models: working day or not
+                linregs[field][horizon][i] = [];
+                for (var j = 0; j < 24; j++) { // 24 models: for every hour in day
+                    linregs[field][horizon][i][j] = analytics.newRecLinReg({ "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 });
+                    linregs[field][horizon][i][j]["predictionField"] = fields[field].field.name;
+                    linregs[field][horizon][i][j]["horizon"] = horizons[horizon];
+                    linregs[field][horizon][i][j]["workingDay"] = i; // asign new field "workingDay" to model (just for demonstrational use)
+                    linregs[field][horizon][i][j]["forHour"] = j; // asign new field "forHour" to model (just for demonstrational use)
+                    linregs[field][horizon][i][j]["updateCount"] = 0; // how many times model was updated (just for demonstrational use)
+                }
             }
         }
     }
@@ -122,43 +156,47 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
     this.horizons = horizons; // TODO: I think I dont need this because the variable is seen allready from the input parameter
     this.featureSpace = ftrSpace;
     this.target = target.name;
-    this.targets = []; predictionFields.forEach(function (target) { this.targets.push(target.field.name)});
+    targets = []; predictionFields.forEach(function (target) { targets.push(target.field.name) });
+    this.targets = targets; // Not neceserelly
     var recordBuffers = createBuffers(horizons, store);
 
-    eval(breakpoint)
-
-    this.locAvrgs = Service.Mobis.Utils.Baseline.newLocAvrgs({ fields: target });
-    this.linregs = createLinRegModels(horizons); // TODO: here we could add optional parameters for linreg
+    this.locAvrgs = createAvrgModels(predictionFields);
+    this.linregs = createLinRegModels(predictionFields, horizons); 
 
     var errorModels = createErrorModels(horizons, errorMetrics);
 
     //////////////// UPDATE STEP /////////////////
     this.update = function (rec) {
 
-        // Update localized average with new record
-        this.locAvrgs.update(rec);
+        for (var predictionFieldIdx in predictionFields) {
+            // Update localized average with new record
+            var locAvrg = this.locAvrgs[predictionFieldIdx];
+            locAvrg.update(rec);
 
-        for (var horizon in horizons) {
-            // Get rec for training
-            var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.oldest.$id;
+            for (var horizonIdx in horizons) {
+                // Get rec for training
+                var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizonIdx].name).val.oldest.$id;
 
-            if (trainRecId > 0) {
+                if (trainRecId > 0) {
 
-                var trainRec = store[trainRecId];
-                var trainHour = trainRec.DateTime.hour;
-                var trainWork = Service.Mobis.Utils.tmFtr.isWorkingDay(trainRec);
-                var targetVal = rec[target.name]
-                trainRec.Predictions[horizon].Target = targetVal;
+                    var trainRec = store[trainRecId];
+                    var trainHour = trainRec.DateTime.hour;
+                    var trainWork = Service.Mobis.Utils.tmFtr.isWorkingDay(trainRec);
 
-                // Select correct linregs model to update
-                linreg = this.linregs[horizon][trainWork][trainHour];
+                    var predictionFieldName = predictionFields[predictionFieldIdx].field.name;
+                    var targetVal = rec[predictionFieldName];
+                    //trainRec.Predictions[horizonIdx].Target = targetVal; //TODO: Make a join!!!!!
 
-                // Update models
-                avrVal.setVal(this.locAvrgs.getVal(rec)) // Set avrVal that is used by ftrExtractor (avrVal.getVal())
-                linreg.learn(ftrSpace.ftrVec(trainRec), targetVal);
-                linreg.updateCount++;
+                    // Select correct linregs model to update
+                    var linreg = this.linregs[predictionFieldIdx][horizonIdx][trainWork][trainHour];
+
+                    // Update models
+                    avrVal.setVal(locAvrg.getVal(rec)) // Set avrVal that is used by ftrExtractor (avrVal.getVal())
+                    linreg.learn(ftrSpace.ftrVec(trainRec), targetVal); 
+                    linreg.updateCount++;
+
+                }
             }
-
         }
     };
 
@@ -178,21 +216,22 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
             // Select correct linregs model
             var hour = rec.DateTime.hour;
             var work = Service.Mobis.Utils.tmFtr.isWorkingDay(rec);
-            var linreg = this.linregs[horizon][work][hour];
-
-            // Set avrVal that is used by ftrExtractor (avrVal.getVal())
-            var predAvrVal = this.locAvrgs.getVal({ "DateTime": predTime })
-            avrVal.setVal(predAvrVal)
+            // DELETE THIS // var linreg = this.linregs[horizon][work][hour];
 
             // Create prediction record
             var predictionRec = {};
             predictionRec.OriginalTime = rec.DateTime.string;
             predictionRec.PredictionTime = predTime.string;
             predictionRec.PredictionHorizon = RecordBuffers[horizon].horizon - 1;
-            predictionRec.SpeedLimit = trafficStore.last.measuredBy.MaxSpeed;
-            predictionRec.AvrValPred = predAvrVal;
-            predictionRec.PrevValPred = rec[target.name];
-            predictionRec[target.name] = linreg.predict(ftrSpace.ftrVec(rec));
+
+            for ( var predictionFieldIdx in predictionFields) {
+                var linreg = this.linregs[predictionFieldIdx][horizon][work][hour];
+                var locAvrg = this.locAvrgs[predictionFieldIdx];
+                var predictionFieldName = predictionFields[predictionFieldIdx].field.name;
+
+                avrVal.setVal(locAvrg.getVal({ "DateTime": predTime }));
+                predictionRec[predictionFieldName] = linreg.predict(ftrSpace.ftrVec(rec));
+            }
 
             // Add prediction record to predictions array
             predictionRecs.push(predictionRec);
@@ -256,7 +295,8 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
                 console.log("Working on rec: " + rec.DateTime.string);
                 console.log("Prediction from: " + trainRec.Predictions[horizon].OriginalTime.string); // Same as trainRec.DateTime.string             
                 console.log("Prediction horizon: " + trainRec.Predictions[horizon].PredictionHorizon)
-                console.log("Target: " + trainRec.Predictions[horizon].Target); // Same as rec[target.name]
+                console.log("Target: " + rec[target.name]); // Same as rec[target.name]
+                //console.log("Target: " + trainRec.Predictions[horizon].Target); // Same as rec[target.name]
                 console.log(target.name + ": " + trainRec.Predictions[horizon][target.name]);
                 //confMain.predictionFields.forEach(function (predField) {
                 //    var predValue = trainRec.Predictions[horizon][predField.name];
