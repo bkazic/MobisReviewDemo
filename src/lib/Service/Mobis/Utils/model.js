@@ -117,12 +117,15 @@ createErrorModels = function (horizon, errMetrics) {
 
 
 
-model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, target, evalOffset, errorMetrics) {
+model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, target, evalOffset, errorMetrics, predictionFields) {
 
-    //this.horizons = horizons; // TODO: I think I dont need this because the variable is seen allready from the input parameter
-    //this.featureSpace = ftrSpace;
+    this.horizons = horizons; // TODO: I think I dont need this because the variable is seen allready from the input parameter
+    this.featureSpace = ftrSpace;
     this.target = target.name;
+    this.targets = []; predictionFields.forEach(function (target) { this.targets.push(target.field.name)});
     var recordBuffers = createBuffers(horizons, store);
+
+    eval(breakpoint)
 
     this.locAvrgs = Service.Mobis.Utils.Baseline.newLocAvrgs({ fields: target });
     this.linregs = createLinRegModels(horizons); // TODO: here we could add optional parameters for linreg
@@ -286,8 +289,9 @@ exports.newModel = function (modelConf) {
     var target = modelConf.target;
     var evalOffset = (modelConf.otherParams.evaluationOffset == null) ? 50 : modelConf.otherParams.evaluationOffset;
     var errorMetrics = modelConf.errorMetrics;
+    var predictionFields = modelConf.predictionFields;  // TODO: what to do if it is not defined (if it is null) ?????
 
-    return new model(horizons, ftrSpace, store, predictionStore, evaluationStore, target, evalOffset, errorMetrics);
+    return new model(horizons, ftrSpace, store, predictionStore, evaluationStore, target, evalOffset, errorMetrics, predictionFields);
 }
 
 // About this module
