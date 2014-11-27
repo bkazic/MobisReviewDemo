@@ -66,6 +66,14 @@ trafficStore.addStreamAggr({
     createStore: false, interval: resampleInterval
 });
 
+// Ads a join back, since it was lost with resampler
+resampledStore.addStreamAggr({
+    name: "addJoinsBack",
+    onAdd: function (rec) {
+        rec.addJoin("measuredBy", trafficStore.last.measuredBy)
+    },
+    saveJson: function () { }
+})
 
 ////////////////////////////// DEFINING FEATURE SPACE //////////////////////////////
 
@@ -185,26 +193,23 @@ var mobisModel = Service.Mobis.Utils.model.newModel(modelConf);
 resampledStore.addStreamAggr({
     name: "analytics",
     onAdd: function (rec) {
-        // Ads a join back, since it was lost with resampler
-        rec.addJoin("measuredBy", trafficStore.last.measuredBy)
-
         //console.log("Working on rec: " + rec.DateTime.string);
-        eval(breakpoint)
+        //eval(breakpoint)
         //if (rec.$id % 100 == 0) {
         //    console.log("== 100 records down ==");
         //    eval(breakpoint)
         //};
 
-        var predictions = mobisModel.predict(rec);    
-        printj(predictions);
+        //var predictions = mobisModel.predict(rec);    
+        //printj(predictions);
 
-        //mobisModel.predict(rec);
+        mobisModel.predict(rec);
 
         mobisModel.update(rec);
 
-        //mobisModel.evaluate(rec);
+        mobisModel.evaluate(rec);
 
-        //mobisModel.consoleReport(rec);
+        mobisModel.consoleReport(rec);
 
     },
     saveJson: function () { }
@@ -297,7 +302,7 @@ var visualize = function (htmlName, displayParam) {
 }
 
 //var htmlName = "Occupancy.html"
-var htmlName = modelConf.target.name + ".html"
+var htmlName = modelConf.target.name + ".html";
 var displayParam = modelConf.target.name;
 visualize(htmlName, displayParam);
 

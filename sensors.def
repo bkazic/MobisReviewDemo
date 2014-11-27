@@ -104,7 +104,7 @@
 		],
         "joins": [
                 { "name": "Evaluation", "type": "index", "store": "Evaluation" },
-		{ "name": "Target", "type": "index", "store": "resampledStore" }
+		{ "name": "Target", "type": "field", "store": "resampledStore" }
         	]
 }
 ]

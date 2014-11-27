@@ -97,15 +97,19 @@ createLinRegModels = function (fields, horizons) {
     return linregs;
 };
 
-createErrorModels = function (horizon, errMetrics) {
+createErrorModels = function (fields, horizon, errMetrics) {
     var errorModels = [];
-    for (var horizon in horizons) {
-        errorModels[horizon] = [];
-        for (var errMetric in errMetrics) {
-            errorModels[horizon][errMetric] = errMetrics[errMetric].constructor();
-            errorModels[horizon][errMetric]["MetricName"] = errMetrics[errMetric].name;
+    for (var field in fields) {
+        errorModels[field] = [];
+        for (var horizon in horizons) {
+            errorModels[field][horizon] = [];
+            for (var errMetric in errMetrics) {
+                errorModels[field][horizon][errMetric] = errMetrics[errMetric].constructor();
+                errorModels[field][horizon][errMetric]["MetricName"] = errMetrics[errMetric].name;
+                errorModels[field][horizon][errMetric]["PredictionField"] = fields[field].field.name;
+            };
         };
-    };
+    }
     return errorModels;
 };
 
@@ -163,7 +167,7 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
     this.locAvrgs = createAvrgModels(predictionFields);
     this.linregs = createLinRegModels(predictionFields, horizons); 
 
-    var errorModels = createErrorModels(horizons, errorMetrics);
+    errorModels = createErrorModels(predictionFields, horizons, errorMetrics);
 
     //////////////// UPDATE STEP /////////////////
     this.update = function (rec) {
@@ -238,7 +242,7 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
             predictionRecs.push(predictionRec);
 
             predictionStore.add(predictionRec);
-            rec.addJoin("Predictions", predictionStore.last)
+            rec.addJoin("Predictions", predictionStore.last);
         };
 
         return predictionRecs;
@@ -248,7 +252,7 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
     this.evaluate = function (rec) {
 
         if (rec.$id < evalOffset) return; // If condition is true, stop function here.
-
+        
         for (horizon in horizons) {
 
             var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.oldest.$id;
@@ -258,13 +262,16 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
                 var errRec = {};
                 errRec["Name"] = errorMetric.name;
 
-                // find correct model and prediction
-                //var errorModel = this.errorModels[horizon][metricIdx];
-                var errorModel = errorModels[horizon][metricIdx];
-                var prediction = trainRec.Predictions[horizon][target.name];
-                // update model and write to errRec
-                errorModel.update(rec[target.name], prediction);
-                errRec[target.name] = errorModel.getError();
+                for (var predictionFieldIdx in predictionFields) {
+                    var predictionFieldName = predictionFields[predictionFieldIdx].field.name;
+                    // find correct model and prediction
+                    var errorModel = errorModels[predictionFieldIdx][horizon][metricIdx];
+                    var prediction = trainRec.Predictions[horizon][predictionFieldName];
+                    // update model and write to errRec
+                    errorModel.update(rec[predictionFieldName], prediction);
+                    errRec[predictionFieldName] = errorModel.getError();
+                }
+
                 // add errRec to Evaluation sore, and add join to Predictions store which is linked to Original store
                 evaluationStore.add(errRec);
                 trainRec.Predictions[horizon].addJoin("Evaluation", evaluationStore.last);
@@ -276,6 +283,7 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
     this.consoleReport = function (rec) {
 
         if (rec.$id < evalOffset) return; // If condition is true, stop function here.
+
         if (resampledStore[resampledStore.length - 1].DateTime.day !== resampledStore[resampledStore.length - 2].DateTime.day) {
             console.println("");
             console.log("\n==================================\n=== REC: " + rec.DateTime.string + " ===\n==================================");
@@ -288,34 +296,38 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
 
             // Only one report per day
             var print = resampledStore[resampledStore.length - 1].DateTime.day !== resampledStore[resampledStore.length - 2].DateTime.day;
-            if (print && resampledStore[trainRecId].Predictions[horizon] !== null && resampledStore[trainRecId].Predictions[horizon].Evaluation[0] !== null) {
+            if (!print) return;
+            if (resampledStore[trainRecId].Predictions[horizon] == null) return;
+            if (resampledStore[trainRecId].Predictions[horizon].Evaluation[0] == null) return;
+            //if (print && resampledStore[trainRecId].Predictions[horizon] !== null && resampledStore[trainRecId].Predictions[horizon].Evaluation[0] !== null) {
 
-                // Report current predictions in the console
-                console.println("");
-                console.log("=== Predictions ===");
-                console.log("Working on rec: " + rec.DateTime.string);
-                console.log("Prediction from: " + trainRec.Predictions[horizon].OriginalTime.string); // Same as trainRec.DateTime.string             
-                console.log("Prediction horizon: " + trainRec.Predictions[horizon].PredictionHorizon)
-                console.log("Target: " + rec[target.name]); // Same as rec[target.name]
-                //console.log("Target: " + trainRec.Predictions[horizon].Target); // Same as rec[target.name]
-                console.log(target.name + ": " + trainRec.Predictions[horizon][target.name]);
-                //confMain.predictionFields.forEach(function (predField) {
-                //    var predValue = trainRec.Predictions[horizon][predField.name];
-                //    console.log(predField.name + ": " + predValue);
-                //});
+            // Report current predictions in the console
+            console.println("");
+            console.log("=== Predictions ===\n");
+            console.log("Working on rec: " + rec.DateTime.string);
+            console.log("Prediction from: " + trainRec.Predictions[horizon].OriginalTime.string); // Same as trainRec.DateTime.string             
+            console.log("Prediction horizon: " + trainRec.Predictions[horizon].PredictionHorizon+"\n")
+            //console.log("Target: " + rec[target.name]); // Same as rec[target.name]
+            //console.log(target.name + ": " + trainRec.Predictions[horizon][target.name]);
+            predictionFields.forEach(function (predField) {
+                var predFieldNm = predField.field.name;
+                var predValue = trainRec.Predictions[horizon][predFieldNm];
+                console.log(predFieldNm + ": " + predValue);
+            });
 
-                // Report evaluation metrics in the console
-                console.println("");
-                console.log("=== Evaluation ===");
-                errorMetrics.forEach(function (errorMetric, metricIdx) {
-                    //predictionFields.forEach(function (errorField, fieldIdx) { //TODO: this will be used later.
-                    //    var errorValue = trainRec.Predictions[horizon].Evaluation[metricIdx][errorField.name];
-                    //    console.log(errorMetric.name + ": " + errorValue);
-                    //});
-                    var errorValue = trainRec.Predictions[horizon].Evaluation[metricIdx][target.name];
-                    console.log(errorMetric.name + ": " + errorValue);
+            // Report evaluation metrics in the console
+            console.println("");
+            console.log("=== Evaluation ===");
+            errorMetrics.forEach(function (errorMetric, metricIdx) {
+                console.log("--" + errorMetric.name + "--");
+                predictionFields.forEach(function (predField) {
+                    var predFieldNm = predField.field.name
+                    var errorValue = trainRec.Predictions[horizon].Evaluation[metricIdx][predFieldNm];
+                    console.log("\t"+predFieldNm + ": " + errorValue);
                 });
-            }
+            });
+            
+            //}
         }
     }
 };
