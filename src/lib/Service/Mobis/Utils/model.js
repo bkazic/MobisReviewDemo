@@ -186,6 +186,7 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
                     var predictionFieldName = predictionFields[predictionFieldIdx].field.name;
                     var targetVal = rec[predictionFieldName];
                     //trainRec.Predictions[horizonIdx].Target = targetVal; //TODO: Make a join!!!!!
+                    trainRec.Predictions[horizonIdx].addJoin("Target", rec); // THIS IS THE IDEA!!
 
                     // Select correct linregs model to update
                     var linreg = this.linregs[predictionFieldIdx][horizonIdx][trainWork][trainHour];

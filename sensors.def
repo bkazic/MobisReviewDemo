@@ -1,34 +1,80 @@
 [
-  {
-    "name" : "CounterNode",
-    "fields" : [
-          { "name" : "Name", "type" : "string", "primary" : true },
-          { "name" : "Status", "type" : "string" , "null" : true},
-          { "name" : "Title", "type" : "string" , "null" : true},
-          { "name" : "Location", "type" : "float_pair"},
-          { "name" : "GeoRssPoint", "type" : "string", "null" : true},
-          { "name" : "GeoX", "type" : "float", "null" : true},
-          { "name" : "GeoY", "type" : "float", "null" : true},
-          { "name" : "Cluster", "type" : "string", "null" : true},
-          { "name" : "MaxSpeed", "type" : "float"},
-          { "name" : "RoadDescription", "type" : "string", "null" : true},
-          { "name" : "DirectionDescription", "type" : "string", "null" : true},
-          { "name" : "RoadLocation", "type" : "float", "null" : true},
-          { "name" : "DirectionLocation", "type" : "string", "null" : true},
-          { "name" : "RoadSection", "type" : "float", "null" : true},
-          { "name" : "Stationing", "type" : "float", "null" : true},
-          { "name" : "Scope", "type" : "string", "null" : true},
-          { "name" : "Source", "type" : "string", "null" : true},
-          { "name" : "Description", "type" : "string", "null" : true}
-      ],
-      "keys" : [
-          { "field" : "Name", "type" : "value" },
-          { "field" : "Status", "type" : "value" },
-          { "field" : "Cluster", "type" : "value" },
-          { "field" : "Scope", "type" : "value" },
-          { "field" : "Source", "type" : "value" }
-      ]
-  },
+	{
+	"name" : "CounterNode",
+	"fields" : [
+		{ "name" : "Name", "type" : "string", "primary" : true },
+		{ "name" : "Status", "type" : "string" , "null" : true},
+		{ "name" : "Title", "type" : "string" , "null" : true},
+		{ "name" : "Location", "type" : "float_pair"},
+		{ "name" : "GeoRssPoint", "type" : "string", "null" : true},
+		{ "name" : "GeoX", "type" : "float", "null" : true},
+		{ "name" : "GeoY", "type" : "float", "null" : true},
+		{ "name" : "Cluster", "type" : "string", "null" : true},
+		{ "name" : "MaxSpeed", "type" : "float"},
+		{ "name" : "RoadDescription", "type" : "string", "null" : true},
+		{ "name" : "DirectionDescription", "type" : "string", "null" : true},
+		{ "name" : "RoadLocation", "type" : "float", "null" : true},
+		{ "name" : "DirectionLocation", "type" : "string", "null" : true},
+		{ "name" : "RoadSection", "type" : "float", "null" : true},
+		{ "name" : "Stationing", "type" : "float", "null" : true},
+		{ "name" : "Scope", "type" : "string", "null" : true},
+		{ "name" : "Source", "type" : "string", "null" : true},
+		{ "name" : "Description", "type" : "string", "null" : true}
+		],
+	"keys" : [
+		{ "field" : "Name", "type" : "value" },
+		{ "field" : "Status", "type" : "value" },
+		{ "field" : "Cluster", "type" : "value" },
+		{ "field" : "Scope", "type" : "value" },
+		{ "field" : "Source", "type" : "value" }
+		]
+	},
+	{
+	"name": "trafficLoadStore",
+	"fields": [
+		{ "name": "DateTime", "type": "datetime", "primary": true },
+		{ "name": "NumOfCars", "type": "float", "null": true },
+		{ "name": "Gap", "type": "float", "null": true },
+		{ "name": "Occupancy", "type": "float", "null": true },
+		{ "name": "Speed", "type": "float", "null": true },
+		{ "name": "TrafficStatus", "type": "float", "null": true }
+		],
+	"joins": [
+		{ "name": "measuredBy", "type": "field", "store": "CounterNode" },
+		{ "name": "Predictions", "type": "index", "store": "Predictions" }
+		]
+   	},
+	{
+	"name": "trafficStore",
+	"fields": [
+		{ "name": "DateTime", "type": "datetime", "primary": true },
+		{ "name": "NumOfCars", "type": "float", "null": true },
+		{ "name": "Gap", "type": "float", "null": true },
+		{ "name": "Occupancy", "type": "float", "null": true },
+		{ "name": "Speed", "type": "float", "null": true },
+		{ "name": "TrafficStatus", "type": "float", "null": true },
+		{ "name": "Replaced", "type": "bool", "null": true, "default": false }
+		],
+	"joins": [
+		{ "name": "measuredBy", "type": "field", "store": "CounterNode" },
+		{ "name": "Predictions", "type": "index", "store": "Predictions" }
+		]
+   	},
+	{
+	"name": "resampledStore",
+	"fields": [
+		{ "name": "DateTime", "type": "datetime", "primary": true },
+		{ "name": "NumOfCars", "type": "float", "null": true },
+		{ "name": "Gap", "type": "float", "null": true },
+		{ "name": "Occupancy", "type": "float", "null": true },
+		{ "name": "Speed", "type": "float", "null": true },
+		{ "name": "TrafficStatus", "type": "float", "null": true }
+		],
+	"joins": [
+		{ "name": "measuredBy", "type": "field", "store": "CounterNode" },
+		{ "name": "Predictions", "type": "index", "store": "Predictions" }
+		]
+   	},	
 	{
 	"name": "Evaluation",
 	"fields": [
@@ -39,8 +85,8 @@
 	        { "name": "Occupancy", "type": "float", "null": true },
 	        { "name": "Speed", "type": "float", "null": true },
 	        { "name": "TrafficStatus", "type": "float", "null": true }
-	]
-   },
+		]
+   	},
 	{
 	"name": "Predictions",
 	"fields": [
@@ -48,16 +94,17 @@
 		{ "name": "OriginalTime", "type": "datetime", "null": true }, //actual dateTime. When the prediction was made.
 	        { "name": "PredictionTime", "type": "datetime", "null": true }, //actual dateTime. Cannot be primary because they will overlap. But you can try latter, because it woul be usefull that we could query them by time.
 	        { "name": "PredictionHorizon", "type": "float", "null": true },
-		{ "name": "Target", "type": "float", "null": true },
+		//{ "name": "Target", "type": "float", "null": true },
 	        
 		{ "name": "NumOfCars", "type": "float", "null": true },
 	        { "name": "Gap", "type": "float", "null": true },
 	        { "name": "Occupancy", "type": "float", "null": true },
 	        { "name": "Speed", "type": "float", "null": true },
 	        { "name": "TrafficStatus", "type": "float", "null": true }
-	],
+		],
         "joins": [
-                { "name": "Evaluation", "type": "index", "store": "Evaluation" }
-        ]
+                { "name": "Evaluation", "type": "index", "store": "Evaluation" },
+		{ "name": "Target", "type": "index", "store": "resampledStore" }
+        	]
 }
 ]

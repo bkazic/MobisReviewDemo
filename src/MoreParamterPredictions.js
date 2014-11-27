@@ -31,7 +31,7 @@ var weekendFtr = Service.Mobis.Utils.Ftr.newWeekendFtrExtractor();
 
 
 //// Define Stores
-Service.Mobis.Utils.Stores.defineStores(); //TODO: Later use .def file instead
+//Service.Mobis.Utils.Stores.defineStores(); //TODO: Later use .def file instead
 var CounterNode = qm.store("CounterNode");
 var Evaluation = qm.store("Evaluation");
 var Predictions = qm.store("Predictions");
@@ -185,8 +185,11 @@ var mobisModel = Service.Mobis.Utils.model.newModel(modelConf);
 resampledStore.addStreamAggr({
     name: "analytics",
     onAdd: function (rec) {
+        // Ads a join back, since it was lost with resampler
+        rec.addJoin("measuredBy", trafficStore.last.measuredBy)
+
         //console.log("Working on rec: " + rec.DateTime.string);
-        //eval(breakpoint)
+        eval(breakpoint)
         //if (rec.$id % 100 == 0) {
         //    console.log("== 100 records down ==");
         //    eval(breakpoint)
