@@ -125,7 +125,6 @@ var modelConf = {
         "predictionStore": Predictions,
         "evaluationStore": Evaluation,
     },
-    //ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
     fields: [ // From this, feature space could be build.
         { name: "NumOfCars" },
         { name: "Gap" }, 
@@ -133,7 +132,6 @@ var modelConf = {
         { name: "Speed" },
         { name: "TrafficStatus" },
     ],
-    //ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
     predictionFields: [ //TODO: Not sure, if I want to use names of fields or fields??
         { field: resampledStore.field("NumOfCars") },
         { field: resampledStore.field("Occupancy") },
@@ -235,8 +233,8 @@ var visualize = function (htmlName, displayParam) {
     var converterParams = {
         timeField: "DateTime",
         fields: [
-            { name: "Actual", get: function (rec) { return rec[displayParam] }, getTm: function (rec) { return rec.DateTime } },
-            { name: "Predicted", get: function (rec) { return rec.Predictions[0][displayParam] }, getTm: function (rec) { return rec.Predictions[0].PredictionTime } },
+            { name: "Actual", get: function (rec) { return rec[displayParam[0].field.name] }, getTm: function (rec) { return rec.DateTime } },
+            { name: "Predicted", get: function (rec) { return rec.Predictions[0][displayParam[0].field.name] }, getTm: function (rec) { return rec.Predictions[0].PredictionTime } },
         ]
     }
 
@@ -244,18 +242,18 @@ var visualize = function (htmlName, displayParam) {
     ////viz.drawHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: localized linear regression models" }, chart: { type: 'spline', zoomType: 'x' }, });
     ////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: localized linear regression models" }, chart: { type: 'spline', zoomType: 'x' }, });
 
-    viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), htmlName, { title: { text: "Predictions: 1h" }, chart: { type: 'spline', zoomType: 'x' }, });
+    viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), htmlName, { title: { text: "Predictions: 1h" }, chart: { type: 'spline', zoomType: 'x' }, colors: ['#74d8da', '#0a5a8c'] });
 
     var converterParams = {
         timeField: "DateTime",
         fields: [
-            { name: "Actual", get: function (rec) { return rec[displayParam] }, getTm: function (rec) { return rec.DateTime } },
-            { name: "Predicted", get: function (rec) { return rec.Predictions[6][displayParam] }, getTm: function (rec) { return rec.Predictions[6].PredictionTime } },
+            { name: "Actual", get: function (rec) { return rec[displayParam[0].field.name] }, getTm: function (rec) { return rec.DateTime } },
+            { name: "Predicted", get: function (rec) { return rec.Predictions[6][displayParam[0].field.name] }, getTm: function (rec) { return rec.Predictions[6].PredictionTime } },
         ]
     }
 
     ////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: errors" }, chart: { type: 'spline', zoomType: 'x' }, });
-    viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), htmlName, { title: { text: "Predictions: 18h" }, chart: { type: 'spline', zoomType: 'x' }, });
+    viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), htmlName, { title: { text: "Predictions: 18h" }, chart: { type: 'spline', zoomType: 'x' }, colors: ['#74d8da', '#0a5a8c'] });
 
     var getLatestEvalRec = function () {
         var maxHorizon = horizons.indexOf(Math.max.apply(null, horizons));
@@ -266,8 +264,10 @@ var visualize = function (htmlName, displayParam) {
     //TODO: this could as well be automatized
     var converterParams = {
         fields: [
-            { name: displayParam, get: function (rec) { try { return rec.Evaluation[0][displayParam] } catch (err) { return null } } },
-        ]
+            { name: displayParam[0].field.name, get: function (rec) { try { return rec.Evaluation[0][displayParam[0].field.name] } catch (err) { return null } } },
+            { name: displayParam[1].field.name, get: function (rec) { try { return rec.Evaluation[0][displayParam[1].field.name] } catch (err) { return null } } },
+            { name: displayParam[2].field.name, get: function (rec) { try { return rec.Evaluation[0][displayParam[2].field.name] } catch (err) { return null } } },
+        ]        
     }
     ////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: errors" }, chart: { type: 'spline', zoomType: 'x' }, });
     viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterColumn(converterParams, toJSON(getLatestEvalRec(), 2)), htmlName,
@@ -284,7 +284,9 @@ var visualize = function (htmlName, displayParam) {
 
     var converterParams = {
         fields: [
-            { name: displayParam, get: function (rec) { try { return rec.Evaluation[3][displayParam] } catch (err) { return null } } },
+            { name: displayParam[0].field.name, get: function (rec) { try { return rec.Evaluation[3][displayParam[0].field.name] } catch (err) { return null } } },
+            { name: displayParam[1].field.name, get: function (rec) { try { return rec.Evaluation[0][displayParam[1].field.name] } catch (err) { return null } } },
+            { name: displayParam[2].field.name, get: function (rec) { try { return rec.Evaluation[0][displayParam[2].field.name] } catch (err) { return null } } },
         ]
     }
     ////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: errors" }, chart: { type: 'spline', zoomType: 'x' }, });
@@ -303,8 +305,10 @@ var visualize = function (htmlName, displayParam) {
 
 //var htmlName = "Occupancy.html"
 var htmlName = modelConf.target.name + ".html";
-var displayParam = modelConf.target.name;
-visualize(htmlName, displayParam);
+//var displayParam = modelConf.target.name; //TODO: this cannot work anymore. Update this part
+//var displayParam = "NumOfCars";
+var displayParams = modelConf.predictionFields
+visualize(htmlName, displayParams);
 
 //////////////////////////// ONLINE (REST) SERVICES ////////////////////////////
 // Query records
@@ -315,10 +319,6 @@ http.onGet("query", function (req, resp) {
     return http.jsonp(req, resp, recs);
 });
 
-// Resampled store with measurements
-// Example1: http://localhost:8080/MoreHorizons/resampledStore No predictions are seen.
-// Example2: http://localhost:8080/MoreHorizons/resampledStore?printJoins=true With predictions. (Optional parameter that sets )
-// Example3: http://localhost:8080/MoreHorizons/resampledStore?printJoins=true&depth=2 With evalueations.
 http.onGet("resampledStore", function (req, resp) {
     var store = qm.store("resampledStore");
     var depth = 0;
@@ -326,6 +326,20 @@ http.onGet("resampledStore", function (req, resp) {
     if (req.args.depth != null) { depth = req.args.depth; }
     // convert to json
     var recs = toJSON(store.recs, depth);
+    return http.jsonp(req, resp, recs);
+});
+
+// Resampled store with measurements
+// Example1: http://localhost:8080/MoreParamterPredictions/demo No predictions are seen.
+// Example2: http://localhost:8080/MoreParamterPredictions/demo?printJoins=true With predictions. (Optional parameter that sets )
+// Example3: http://localhost:8080/MoreParamterPredictions/demo?printJoins=true&depth=2 With evalueations.
+http.onGet("demo", function (req, resp) {
+    var store = qm.store("resampledStore");
+    var depth = 0;
+    depth = (req.args.printJoins == "true") ? 1 : 0;
+    if (req.args.depth != null) { depth = req.args.depth; }
+    // convert to json
+    var recs = toJSON(store.tail(100), depth);
     return http.jsonp(req, resp, recs);
 });
 
