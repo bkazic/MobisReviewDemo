@@ -3,6 +3,31 @@
 // script name
 var scriptNm = process.scriptNm;
 
+///// TRAFFIC STORES
+// Define measurement store definition as a function so that it can be used several times 
+var createTrafficStore = function (storeName, extraFields) {
+    storeDef = [{
+        "name": storeName,
+        "fields": [
+                //{ "name": "DateTime", "type": "datetime", "primary": true },
+                { "name": "DateTime", "type": "datetime"},
+                { "name": "NumOfCars", "type": "float", "null": true },
+                { "name": "Gap", "type": "float", "null": true },
+                { "name": "Occupancy", "type": "float", "null": true },
+                { "name": "Speed", "type": "float", "null": true },
+                { "name": "TrafficStatus", "type": "float", "null": true }
+        ],
+        "joins": [
+            { "name": "measuredBy", "type": "field", "store": "CounterNode" },
+            { "name": "Predictions", "type": "index", "store": "Predictions" }
+        ]
+    }];
+    if (extraFields) {
+        storeDef[0].fields = storeDef[0].fields.concat(extraFields);
+    }
+    qm.createStore(storeDef);
+};
+
 exports.defineStores = function () {
 
     // I defined it in def file, so it doesent needs to be defined here also.
@@ -19,30 +44,6 @@ exports.defineStores = function () {
     //            { "name": "TrafficStatus", "type": "float", "null": true }
     //    ]
     //}]);
-
-    ///// TRAFFIC STORES
-    // Define measurement store definition as a function so that it can be used several times 
-    var createTrafficStore = function (storeName, extraFields) {
-        storeDef = [{
-            "name": storeName,
-            "fields": [
-                    { "name": "DateTime", "type": "datetime", "primary": true },
-                    { "name": "NumOfCars", "type": "float", "null": true },
-                    { "name": "Gap", "type": "float", "null": true },
-                    { "name": "Occupancy", "type": "float", "null": true },
-                    { "name": "Speed", "type": "float", "null": true },
-                    { "name": "TrafficStatus", "type": "float", "null": true }
-            ],
-            "joins": [
-                { "name": "measuredBy", "type": "field", "store": "CounterNode" },
-                { "name": "Predictions", "type": "index", "store": "Predictions" }
-            ]
-        }];
-        if (extraFields) {
-            storeDef[0].fields = storeDef[0].fields.concat(extraFields);
-        }
-        qm.createStore(storeDef);
-    };
 
     // Creating Store for measurements
     createTrafficStore("trafficLoadStore");
@@ -80,14 +81,114 @@ exports.defineStores = function () {
     ]
 
     createTrafficStore("resampledStore", extraFields);
-
 }
+
+exports.createMeasurementStores = function (SensorsStore) {
+
+    var result = {
+        trafficStores: [],
+        resampledStores: [],
+        evaluationStores: [],
+        predictionStores: []
+    }
+
+    var createStores = function (name) {
+        name = name.replace("-", "_");
+
+        var storeDef = [
+        {
+            "name": "trafficStore_" + name,
+            "fields": [
+                { "name": "DateTime", "type": "datetime", "primary": true },
+                { "name": "NumOfCars", "type": "float", "null": true },
+                { "name": "Gap", "type": "float", "null": true },
+                { "name": "Occupancy", "type": "float", "null": true },
+                { "name": "Speed", "type": "float", "null": true },
+                { "name": "TrafficStatus", "type": "float", "null": true },
+                { "name": "Replaced", "type": "bool", "null": true, "default": false }
+            ],
+            "joins": [
+                { "name": "measuredBy", "type": "field", "store": "CounterNode" },
+                { "name": "Predictions", "type": "index", "store": "Predictions" }
+            ]
+        },
+        {
+            "name": "resampledStore_" + name,
+            "fields": [
+                { "name": "DateTime", "type": "datetime", "primary": true },
+                { "name": "NumOfCars", "type": "float", "null": true },
+                { "name": "Gap", "type": "float", "null": true },
+                { "name": "Occupancy", "type": "float", "null": true },
+                { "name": "Speed", "type": "float", "null": true },
+                { "name": "TrafficStatus", "type": "float", "null": true }
+            ],
+            "joins": [
+                { "name": "measuredBy", "type": "field", "store": "CounterNode" },
+                { "name": "Predictions", "type": "index", "store": "Predictions" }
+            ]
+        },
+        {
+            "name": "Evaluation_" + name,
+            "fields": [
+                { "name": "Name", "type": "string", "null": true },
+
+                { "name": "NumOfCars", "type": "float", "null": true },
+                { "name": "Gap", "type": "float", "null": true },
+                { "name": "Occupancy", "type": "float", "null": true },
+                { "name": "Speed", "type": "float", "null": true },
+                { "name": "TrafficStatus", "type": "float", "null": true }
+            ]
+        },
+        {
+            "name": "Predictions_" + name,
+            "fields": [
+                { "name": "Name", "type": "string", "null": true },
+                { "name": "OriginalTime", "type": "datetime", "null": true },
+                { "name": "PredictionTime", "type": "datetime", "null": true },
+                { "name": "PredictionHorizon", "type": "float", "null": true },
+
+                { "name": "NumOfCars", "type": "float", "null": true },
+                { "name": "Gap", "type": "float", "null": true },
+                { "name": "Occupancy", "type": "float", "null": true },
+                { "name": "Speed", "type": "float", "null": true },
+                { "name": "TrafficStatus", "type": "float", "null": true }
+            ],
+            "joins": [
+                { "name": "Evaluation", "type": "index", "store": "Evaluation" },
+                { "name": "Target", "type": "field", "store": "resampledStore" }
+            ]
+        }
+        ];
+        qm.createStore(storeDef);
+
+        //add store to return object
+        //result.trafficStores.push("trafficStore_" + name);
+        //result.resampledStores.push("resampledStore_" + name);
+        //result.evaluationStores.push("Evaluation_" + name);
+        //result.predictionStores.push("Predictions_" + name);
+
+        //add store to return object
+        result.trafficStores.push(qm.store("trafficStore_" + name));
+        result.resampledStores.push(qm.store("resampledStore_" + name));
+        result.evaluationStores.push(qm.store("Evaluation_" + name));
+        result.predictionStores.push(qm.store("Predictions_" + name));
+    }
+
+    SensorsStore.each(function (sensor) { createStores(sensor.Name) })
+    return result;
+};
 
 exports.loadStores = function() {
     // Load measurements from file to stores
-    qm.load.jsonFile(qm.store("CounterNode"), "./sandbox/" + scriptNm + "/countersNodes.txt");    
+    //qm.load.jsonFile(qm.store("CounterNode"), "./sandbox/" + scriptNm + "/countersNodes.txt");    
     //qm.load.jsonFile(qm.store('trafficLoadStore'), "./sandbox/" + scriptNm + "/measurements_0178_11.txt");
-    qm.load.jsonFile(qm.store('trafficLoadStore'), "./sandbox/" + scriptNm + "/measurements_0011_11.txt");
+    //qm.load.jsonFile(qm.store('trafficLoadStore'), "./sandbox/" + scriptNm + "/measurements_0011_11.txt");
+    qm.load.jsonFile(qm.store('trafficLoadStore'), "./sandbox/" + scriptNm + "/measurements_9_sens_3_mon.txt");
+}
+
+exports.createNewTrafficStore = function (storeNm, extraFld) {
+    createTrafficStore(storeNm, extraFld);
+    return qm.store(storeNm)
 }
 
 // About this module

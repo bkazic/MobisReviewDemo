@@ -4,6 +4,7 @@ Service.Mobis.Utils.Baseline = require('Service/Mobis/Utils/baselinePredictors.j
 Service.Mobis.Utils.tmFtr = require('Service/Mobis/Utils/dateTimeFtr.js');
 var analytics = require('analytics.js');
 
+
 createBuffers = function (horizons, store) {
     // Initialize RecordBuffers definiton for all horizons 
     RecordBuffers = [];
@@ -26,24 +27,6 @@ createBuffers = function (horizons, store) {
     };
     return RecordBuffers;
 };
-
-
-// DELETE THIS //
-//createAvrgModels = function (horizons) {
-//    // create 2 * 24 avr models, for every hour
-//    var avrgs = [];
-//    for (var horizon in horizons) {
-//        avrgs[horizon] = [];
-//        for (var i = 0; i < 2; i++) { // 2 models: working day or not
-//            avrgs[horizon][i] = [];
-//            for (var j = 0; j < 24; j++) {
-//                avrgs[horizon][i][j] = Service.Mobis.Utils.Baseline.newAvrVal();
-//                avrgs[horizon][i][j]["forHour"] = j; // asign new field "forHour" to model
-//            };
-//        };
-//    };
-//    return avrgs;
-//};
 
 createAvrgModels = function (targetFields) {
     // create set of locAvr models, for every target field

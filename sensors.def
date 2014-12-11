@@ -32,7 +32,7 @@
 	{
 	"name": "trafficLoadStore",
 	"fields": [
-		{ "name": "DateTime", "type": "datetime", "primary": true },
+		{ "name": "DateTime", "type": "datetime" },
 		{ "name": "NumOfCars", "type": "float", "null": true },
 		{ "name": "Gap", "type": "float", "null": true },
 		{ "name": "Occupancy", "type": "float", "null": true },
@@ -47,7 +47,7 @@
 	{
 	"name": "trafficStore",
 	"fields": [
-		{ "name": "DateTime", "type": "datetime", "primary": true },
+		{ "name": "DateTime", "type": "datetime" },
 		{ "name": "NumOfCars", "type": "float", "null": true },
 		{ "name": "Gap", "type": "float", "null": true },
 		{ "name": "Occupancy", "type": "float", "null": true },
@@ -106,5 +106,5 @@
                 { "name": "Evaluation", "type": "index", "store": "Evaluation" },
 		{ "name": "Target", "type": "field", "store": "resampledStore" }
         	]
-}
+	}
 ]

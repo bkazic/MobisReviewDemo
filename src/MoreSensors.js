@@ -2,7 +2,8 @@ var analytics = require('analytics.js');
 var evaluation = require('evaluation.js');
 var tm = require('time');
 var utilities = require('utilities.js');
-var viz = require('visualization.js');
+//var viz = require('visualization.js');
+var viz = require('Service/Mobis/Utils/visualization.js');
 
 // Create instance for stop watch
 sw = new utilities.clsStopwatch();
@@ -29,7 +30,6 @@ var slovenianHolidayFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("S
 var fullMoonFtr = new Service.Mobis.Utils.Ftr.specialDaysFtrExtractor("Full_moon");
 var weekendFtr = Service.Mobis.Utils.Ftr.newWeekendFtrExtractor();
 
-
 //// Define Stores
 //Service.Mobis.Utils.Stores.defineStores(); //TODO: Later use .def file instead
 var CounterNode = qm.store("CounterNode");
@@ -40,40 +40,152 @@ var trafficStore = qm.store('trafficStore');
 //var mergedStore = qm.store('mergedStore'); 
 var resampledStore = qm.store('resampledStore');
 
+qm.load.jsonFile(CounterNode, "./sandbox/" + process.scriptNm + "/countersNodes.txt"); // I have to loadid here because function below needs it
+
+var testStore = Service.Mobis.Utils.Stores.createNewTrafficStore("Test");
+var stores = Service.Mobis.Utils.Stores.createMeasurementStores(CounterNode);
+
+trafficStores = stores.trafficStores;
+resampledStores = stores.resampledStores;
+evaluationStores = stores.evaluationStores;
+predictionStores = stores.predictionStores;
+
+///////////////////// PREPROCESSING FOR TRAFFIC DATA SOURCE /////////////////////
+
+// Replaces incorect speed values, with avr value
+trafficStore.addStreamAggr({
+    name: "setStores",
+    onAdd: function (rec) {
+
+        // SOME DEBUGING CODE //
+        console.log("\n\n\n== First Test ==");
+        console.log("Original record comes form store: " + rec.$store.name)
+        console.log("Number of records in this store: " + rec.$store.length)
+        console.log("Rec is: ");
+        printj(rec.toJSON(true));
+
+        //eval(breakpoint);
+
+        //trafficStore = qm.store(rec.measuredBy.Name);
+        //if (rec == null) return;
+        id = rec.measuredBy.Name.replace("-", "_");
+        trafficStore = qm.store("trafficStore_" + id);
+        Evaluation = qm.store("Evaluation_" + id);
+        Predictions = qm.store("Predictions_" + id);
+        resampledStore = qm.store('resampledStore_' + id);
+
+        console.log("I am storing it in: " + trafficStore.name)
+        console.log("Number of records in this store: " + trafficStore.length)
+
+        trafficStore.add(rec.toJSON(true));
+    },
+    saveJson: function () { }
+});
+
+trafficStores.forEach (function (store) {
+    store.addStreamAggr({
+    name: "Test2",
+    onAdd: function (rec) {
+        console.log("\n\n\n== Second Test ==");
+        console.log("Record comes from: " + rec.$store.name)
+        console.log("Number of records in this store: " + trafficStore.length)
+        printj(trafficStore.last.toJSON(true));
+    },
+    saveJson: function () { }
+    });
+})
 
 ///////////////////// PREPROCESSING FOR TRAFFIC DATA SOURCE /////////////////////
 // Replaces incorect speed values, with avr value
-trafficStore.addStreamAggr({
-    name: "makeCleanSpeedNoCars",
-    onAdd: Service.Mobis.Loop.makeCleanSpeedNoCars(avrOld),
-    saveJson: function () { }
+trafficStores.forEach (function (store) {
+    store.addStreamAggr({
+        name: "makeCleanSpeedNoCars",
+        onAdd: Service.Mobis.Loop.makeCleanSpeedNoCars(avrOld),
+        saveJson: function () { }
+    });
+})
+
+// Just for debuging, delete this later
+trafficStores.forEach( function (store) {
+    store.addStreamAggr({
+        name: "Test3",
+        onAdd: function (rec) {
+            console.log("\n\n\n== Third Test ==");
+            console.log("Here trafficStore is: " + trafficStore.name);
+            console.log("Record comes from: " + rec.$store.name);
+            console.log("Here resampledStore is: " + resampledStore.name);
+        },
+        saveJson: function () { }
+    });
 });
 
 
 //////////////////////////// RESAMPLING MERGED STORE ////////////////////////////
 // This resample aggregator creates new resampled store
 var resampleInterval = 60 * 60 * 1000;
-//qm.newStreamAggr({ //TODO: test if it would work with this?
-trafficStore.addStreamAggr({
-    name: "Resampled", type: "resampler",
-    outStore: resampledStore.name, timestamp: "DateTime",
-    fields: [{ name: "NumOfCars", interpolator: "linear" },
-             { name: "Gap", interpolator: "linear" },
-             { name: "Occupancy", interpolator: "linear" },
-             { name: "Speed", interpolator: "linear" },
-             { name: "TrafficStatus", interpolator: "linear" },
-    ],
-    createStore: false, interval: resampleInterval
+
+trafficStores.forEach(function (inStore, idx) {
+    var outStore = resampledStores[idx];
+    // set output sytore
+    inStore.addStreamAggr({
+        name: "Resampled", type: "resampler",
+        outStore: outStore.name, timestamp: "DateTime",
+        fields: [{ name: "NumOfCars", interpolator: "linear" },
+                 { name: "Gap", interpolator: "linear" },
+                 { name: "Occupancy", interpolator: "linear" },
+                 { name: "Speed", interpolator: "linear" },
+                 { name: "TrafficStatus", interpolator: "linear" },
+        ],
+        createStore: false, interval: resampleInterval
+    });
+    console.log("Inictializing resampler...");
+    console.log("inStore: " + inStore.name);
+    console.log("outStore: " + outStore.name);
+});
+
+// Just for debuging, delete this later
+resampledStores.forEach( function (store) {
+    store.addStreamAggr({
+    name: "test4",
+    onAdd: function (rec) {
+        console.log("\n\n\n== Fourth Test ==");
+        console.log("We are in: " + resampledStore.name);
+        console.log("Record comes from: " + rec.$store.name);
+        printj(rec.toJSON(true));
+    },
+    saveJson: function () { }
+    });
 });
 
 // Ads a join back, since it was lost with resampler
-resampledStore.addStreamAggr({
+resampledStores.forEach( function (store) {
+    store.addStreamAggr({
     name: "addJoinsBack",
     onAdd: function (rec) {
-        rec.addJoin("measuredBy", trafficStore.last.measuredBy)
+        rec.addJoin("measuredBy", trafficStore.last.measuredBy);
+        console.log("\n\n\nHey, this happened!");
+        console.log("Record comes from: " + rec.$store.name);
+        console.log("resampledStore is: " + resampledStore.name);
     },
     saveJson: function () { }
-})
+    });
+});
+
+
+// Just for debuging, delete this later
+resampledStores.forEach(function (store) {
+    store.addStreamAggr({
+    name: "test5",
+    onAdd: function (rec) {
+        console.log("\n\n\n== Fifth Test ==");
+        console.log("We are in: " + resampledStore.name);
+        console.log("Record comes from: " + rec.$store.name);
+        printj(rec.toJSON(true));
+        eval(breakpoint)
+    },
+    saveJson: function () { }
+    });
+});
 
 ////////////////////////////// DEFINING FEATURE SPACE //////////////////////////////
 
@@ -118,6 +230,34 @@ var ftrSpace = analytics.newFeatureSpace([
 horizons = [1, 3, 6, 9, 12, 15, 18] // if you have resampling na 1h
 //horizons = [1, 6, 1*12, 3*12, 6*12, 9*12, 12*12, 15*12, 18*12] // if you hvae resampling na 5min
 
+// this two configuration files shoud be probabl merged into one?
+
+// Testing confing file
+//ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
+var confMain = {
+    fields: [ // From this, feature space could be build.
+        { name: "NumOfCars" },
+        //{ name: "Gap" }, 
+        { name: "Occupancy" },
+        { name: "Speed" },
+        { name: "TrafficStatus" },
+    ],
+    predictionFields: [
+        { name: "Speed" },
+        //{ name: "Occupancy" },
+    ],
+    errorFields: [
+        { name: "Speed", predictionField: "Speed" }, // YOU DONT NEED predictionField IN THIS CASE
+        //{ name: "Occupancy", predictionField: "Occupancy" },
+    ],
+    errorMetrics: [
+        { name: "MAE", constructor: function () { return evaluation.newMeanAbsoluteError() } },
+        { name: "RMSE", constructor: function () { return evaluation.newRootMeanSquareError() } },
+        { name: "MAPE", constructor: function () { return evaluation.newMeanAbsolutePercentageError() } },
+        { name: "R2", constructor: function () { return evaluation.newRSquareScore() } }
+    ]
+}
+
 /// CONFIGURATION OBJECT
 var modelConf = {
     stores: {
@@ -156,42 +296,15 @@ var modelConf = {
     ]
 }
 
-
-// this two configuration files shoud be probabl merged into one?
-
-// Testing confing file
-//ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
-var confMain = {
-    fields: [ // From this, feature space could be build.
-        { name: "NumOfCars" }, 
-        //{ name: "Gap" }, 
-        { name: "Occupancy" },
-        { name: "Speed" }, 
-        { name: "TrafficStatus" }, 
-    ],
-    predictionFields: [
-        { name: "Speed" }, 
-        //{ name: "Occupancy" },
-    ],
-    errorFields: [
-        { name: "Speed", predictionField: "Speed" }, // YOU DONT NEED predictionField IN THIS CASE
-        //{ name: "Occupancy", predictionField: "Occupancy" },
-    ],
-    errorMetrics: [
-        { name: "MAE", constructor: function () { return evaluation.newMeanAbsoluteError() } },
-        { name: "RMSE", constructor: function () { return evaluation.newRootMeanSquareError() } },
-        { name: "MAPE", constructor: function () { return evaluation.newMeanAbsolutePercentageError() } },
-        { name: "R2", constructor: function () { return evaluation.newRSquareScore() } }
-    ]
-}
-
 var mobisModel = Service.Mobis.Utils.model.newModel(modelConf);
 
 //////////////////////////// PREDICTION AND EVALUATION ////////////////////////////
 resampledStore.addStreamAggr({
+//qm.newStreamAggr({
     name: "analytics",
     onAdd: function (rec) {
-        //console.log("Working on rec: " + rec.DateTime.string);
+        console.log("Working on rec: " + rec.DateTime.string);
+        printj(rec.toJSON(true));
         //eval(breakpoint)
         //if (rec.$id % 100 == 0) {
         //    console.log("== 100 records down ==");
@@ -200,6 +313,9 @@ resampledStore.addStreamAggr({
 
         //var predictions = mobisModel.predict(rec);    
         //printj(predictions);
+
+        console.log("------ CONSOLE MODE -------");
+        eval(breakpoint);
 
         mobisModel.predict(rec);
 
@@ -221,6 +337,7 @@ Service.Mobis.Utils.Stores.loadStores();
 var loadStores = [trafficLoadStore];
 //var targetStores = [trafficStore, weatherStore, eventLogsStore];
 var targetStores = [trafficStore];
+
 Service.Mobis.Utils.Data.importData(loadStores, targetStores, 10000);
 //Service.Mobis.Utils.Data.importData(loadStores, targetStores, 26000);
 //Service.Mobis.Utils.Data.importData(loadStores, targetStores);
