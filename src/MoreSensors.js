@@ -56,16 +56,7 @@ predictionStores = stores.predictionStores;
 trafficStore.addStreamAggr({
     name: "setStores",
     onAdd: function (rec) {
-
-        // SOME DEBUGING CODE //
-        console.log("\n\n\n== First Test ==");
-        console.log("Original record comes form store: " + rec.$store.name)
-        console.log("Number of records in this store: " + rec.$store.length)
-        console.log("Rec is: ");
-        printj(rec.toJSON(true));
-
-        //eval(breakpoint);
-
+        // Defining variables for stores, acording to rec origin
         //trafficStore = qm.store(rec.measuredBy.Name);
         //if (rec == null) return;
         id = rec.measuredBy.Name.replace("-", "_");
@@ -74,26 +65,11 @@ trafficStore.addStreamAggr({
         Predictions = qm.store("Predictions_" + id);
         resampledStore = qm.store('resampledStore_' + id);
 
-        console.log("I am storing it in: " + trafficStore.name)
-        console.log("Number of records in this store: " + trafficStore.length)
-
+        // Moving rec to appropriate store
         trafficStore.add(rec.toJSON(true));
     },
     saveJson: function () { }
 });
-
-trafficStores.forEach (function (store) {
-    store.addStreamAggr({
-    name: "Test2",
-    onAdd: function (rec) {
-        console.log("\n\n\n== Second Test ==");
-        console.log("Record comes from: " + rec.$store.name)
-        console.log("Number of records in this store: " + trafficStore.length)
-        printj(trafficStore.last.toJSON(true));
-    },
-    saveJson: function () { }
-    });
-})
 
 ///////////////////// PREPROCESSING FOR TRAFFIC DATA SOURCE /////////////////////
 // Replaces incorect speed values, with avr value
@@ -104,21 +80,6 @@ trafficStores.forEach (function (store) {
         saveJson: function () { }
     });
 })
-
-// Just for debuging, delete this later
-trafficStores.forEach( function (store) {
-    store.addStreamAggr({
-        name: "Test3",
-        onAdd: function (rec) {
-            console.log("\n\n\n== Third Test ==");
-            console.log("Here trafficStore is: " + trafficStore.name);
-            console.log("Record comes from: " + rec.$store.name);
-            console.log("Here resampledStore is: " + resampledStore.name);
-        },
-        saveJson: function () { }
-    });
-});
-
 
 //////////////////////////// RESAMPLING MERGED STORE ////////////////////////////
 // This resample aggregator creates new resampled store
@@ -143,49 +104,31 @@ trafficStores.forEach(function (inStore, idx) {
     console.log("outStore: " + outStore.name);
 });
 
-// Just for debuging, delete this later
-resampledStores.forEach( function (store) {
-    store.addStreamAggr({
-    name: "test4",
-    onAdd: function (rec) {
-        console.log("\n\n\n== Fourth Test ==");
-        console.log("We are in: " + resampledStore.name);
-        console.log("Record comes from: " + rec.$store.name);
-        printj(rec.toJSON(true));
-    },
-    saveJson: function () { }
-    });
-});
-
 // Ads a join back, since it was lost with resampler
 resampledStores.forEach( function (store) {
     store.addStreamAggr({
     name: "addJoinsBack",
     onAdd: function (rec) {
         rec.addJoin("measuredBy", trafficStore.last.measuredBy);
-        console.log("\n\n\nHey, this happened!");
-        console.log("Record comes from: " + rec.$store.name);
-        console.log("resampledStore is: " + resampledStore.name);
     },
     saveJson: function () { }
     });
 });
 
 
-// Just for debuging, delete this later
-resampledStores.forEach(function (store) {
-    store.addStreamAggr({
-    name: "test5",
-    onAdd: function (rec) {
-        console.log("\n\n\n== Fifth Test ==");
-        console.log("We are in: " + resampledStore.name);
-        console.log("Record comes from: " + rec.$store.name);
-        printj(rec.toJSON(true));
-        eval(breakpoint)
-    },
-    saveJson: function () { }
-    });
-});
+//// Just for debuging, delete this later
+//resampledStores.forEach(function (store) {
+//    store.addStreamAggr({
+//    name: "test5",
+//    onAdd: function (rec) {
+//        console.log("\n\n\n== Fifth Test ==");
+//        console.log("We are in: " + resampledStore.name);
+//        console.log("Record comes from: " + rec.$store.name);
+//        printj(rec.toJSON(true));
+//    },
+//    saveJson: function () { }
+//    });
+//});
 
 ////////////////////////////// DEFINING FEATURE SPACE //////////////////////////////
 
@@ -204,25 +147,24 @@ resampledStores.forEach(function (store) {
 var avrVal = Service.Mobis.Utils.helper.newDummyModel();
 
 
-// Feature space
-var ftrSpace = analytics.newFeatureSpace([
-    { type: "constant", source: resampledStore.name, val: 1 },
-    //{ type: "numeric", source: resampledStore.name, field: "Ema1", normalize: false },
-    //{ type: "numeric", source: resampledStore.name, field: "Ema2", normalize: false },
-    { type: "numeric", source: resampledStore.name, field: "Speed", normalize: false },
-    { type: "numeric", source: resampledStore.name, field: "NumOfCars", normalize: false },
-    { type: "numeric", source: resampledStore.name, field: "Gap", normalize: false },
-    { type: "numeric", source: resampledStore.name, field: "Occupancy", normalize: false },
-    { type: "numeric", source: resampledStore.name, field: "TrafficStatus", normalize: false },
-    //{ type: "jsfunc", source: resampledStore.name, name: "AvrVal", fun: getAvrVal.getVal },
-    { type: "jsfunc", source: resampledStore.name, name: "AvrVal", fun: avrVal.getVal },
+//// Feature space
+//var ftrSpace = analytics.newFeatureSpace([
+//    { type: "constant", source: resampledStore.name, val: 1 },
+//    //{ type: "numeric", source: resampledStore.name, field: "Ema1", normalize: false },
+//    //{ type: "numeric", source: resampledStore.name, field: "Ema2", normalize: false },
+//    { type: "numeric", source: resampledStore.name, field: "Speed", normalize: false },
+//    { type: "numeric", source: resampledStore.name, field: "NumOfCars", normalize: false },
+//    { type: "numeric", source: resampledStore.name, field: "Gap", normalize: false },
+//    { type: "numeric", source: resampledStore.name, field: "Occupancy", normalize: false },
+//    { type: "numeric", source: resampledStore.name, field: "TrafficStatus", normalize: false },
+//    //{ type: "jsfunc", source: resampledStore.name, name: "AvrVal", fun: getAvrVal.getVal },
+//    { type: "jsfunc", source: resampledStore.name, name: "AvrVal", fun: avrVal.getVal },
     
-    // Can I know, which rec is calling ftrSpace?
-    //{ type: "jsfunc", source: resampledStore.name, name: "AvrVal", fun: getAvrVal.getVal }
+//    // Can I know, which rec is calling ftrSpace?
+//    //{ type: "jsfunc", source: resampledStore.name, name: "AvrVal", fun: getAvrVal.getVal }
 
-    //{ type: "multinomial", source: resampledStore.name, field: "DateTime", datetime: true }
-]);
-
+//    //{ type: "multinomial", source: resampledStore.name, field: "DateTime", datetime: true }
+//]);
 
 //////////////////////////////// MORE AGREGATES //////////////////////////////////
 
@@ -230,81 +172,92 @@ var ftrSpace = analytics.newFeatureSpace([
 horizons = [1, 3, 6, 9, 12, 15, 18] // if you have resampling na 1h
 //horizons = [1, 6, 1*12, 3*12, 6*12, 9*12, 12*12, 15*12, 18*12] // if you hvae resampling na 5min
 
-// this two configuration files shoud be probabl merged into one?
+// Create hashtable for models
+var mobisModels = utilities.newHashTable();
 
-// Testing confing file
-//ITS NOT BEEING USED YET. ITS JUST A PROTOTYPE.
-var confMain = {
-    fields: [ // From this, feature space could be build.
-        { name: "NumOfCars" },
-        //{ name: "Gap" }, 
-        { name: "Occupancy" },
-        { name: "Speed" },
-        { name: "TrafficStatus" },
-    ],
-    predictionFields: [
-        { name: "Speed" },
-        //{ name: "Occupancy" },
-    ],
-    errorFields: [
-        { name: "Speed", predictionField: "Speed" }, // YOU DONT NEED predictionField IN THIS CASE
-        //{ name: "Occupancy", predictionField: "Occupancy" },
-    ],
-    errorMetrics: [
-        { name: "MAE", constructor: function () { return evaluation.newMeanAbsoluteError() } },
-        { name: "RMSE", constructor: function () { return evaluation.newRootMeanSquareError() } },
-        { name: "MAPE", constructor: function () { return evaluation.newMeanAbsolutePercentageError() } },
-        { name: "R2", constructor: function () { return evaluation.newRSquareScore() } }
-    ]
-}
+resampledStores.forEach(function (store, idx) {
 
-/// CONFIGURATION OBJECT
-var modelConf = {
-    stores: {
-        "sourceStore": resampledStore,
-        "predictionStore": Predictions,
-        "evaluationStore": Evaluation,
-    },
-    fields: [ // From this, feature space could be build.
-        { name: "NumOfCars" },
-        { name: "Gap" }, 
-        { name: "Occupancy" },
-        { name: "Speed" },
-        { name: "TrafficStatus" },
-    ],
-    predictionFields: [ //TODO: Not sure, if I want to use names of fields or fields??
-        { field: resampledStore.field("NumOfCars") },
-        { field: resampledStore.field("Occupancy") },
-        { field: resampledStore.field("Speed") },
-    ],
+    /// CONFIGURATION OBJECT
+    var modelConf = {
+        stores: {
+            //"sourceStore": resampledStore,
+            //"predictionStore": Predictions,
+            //"evaluationStore": Evaluation,
+            "sourceStore": resampledStores[idx],
+            "predictionStore": predictionStores[idx],
+            "evaluationStore": evaluationStores[idx],
+        },
+        fields: [ // From this, feature space could be build.
+            { name: "NumOfCars" },
+            { name: "Gap" },
+            { name: "Occupancy" },
+            { name: "Speed" },
+            { name: "TrafficStatus" },
+        ],
 
-    ftrSpace: ftrSpace, //TODO: Later this will be done automatically
-    target: resampledStore.field("NumOfCars"),
+        featureSpace: [
+            { type: "constant", source: store.name, val: 1 },
+            //{ type: "numeric", source: store.name, field: "Ema1", normalize: false },
+            //{ type: "numeric", source: store.name, field: "Ema2", normalize: false },
+            { type: "numeric", source: store.name, field: "Speed", normalize: false },
+            { type: "numeric", source: store.name, field: "NumOfCars", normalize: false },
+            { type: "numeric", source: store.name, field: "Gap", normalize: false },
+            { type: "numeric", source: store.name, field: "Occupancy", normalize: false },
+            { type: "numeric", source: store.name, field: "TrafficStatus", normalize: false },
+            //{ type: "jsfunc", source: store.name, name: "AvrVal", fun: getAvrVal.getVal },
+            { type: "jsfunc", source: store.name, name: "AvrVal", fun: avrVal.getVal },
+        ],
 
-    otherParams: { // This are optional parameters
-        evaluationOffset: 50,
-    },
-    
-    predictionHorizons: [1, 3, 6, 9, 12, 15, 18],
+        predictionFields: [ //TODO: Not sure, if I want to use names of fields or fields??
+            { field: store.field("NumOfCars") },
+            { field: store.field("Occupancy") },
+            { field: store.field("Speed") },
+        ],
 
-    //recLinRegParameters: { "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 }, // Not used yet. //Have to think about it how to use this
-    errorMetrics: [
-        { name: "MAE", constructor: function () { return evaluation.newMeanAbsoluteError() } },
-        { name: "RMSE", constructor: function () { return evaluation.newRootMeanSquareError() } },
-        { name: "MAPE", constructor: function () { return evaluation.newMeanAbsolutePercentageError() } },
-        { name: "R2", constructor: function () { return evaluation.newRSquareScore() } }
-    ]
-}
+        //ftrSpace: ftrSpace, //TODO: Later this will be done automatically
 
-var mobisModel = Service.Mobis.Utils.model.newModel(modelConf);
+        target: store.field("NumOfCars"),
+
+        otherParams: { // This are optional parameters
+            evaluationOffset: 50, 
+        },
+
+        predictionHorizons: [1, 3, 6, 9, 12, 15, 18],
+
+        //recLinRegParameters: { "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 }, // Not used yet. //Have to think about it how to use this
+        errorMetrics: [
+            { name: "MAE", constructor: function () { return evaluation.newMeanAbsoluteError() } },
+            { name: "RMSE", constructor: function () { return evaluation.newRootMeanSquareError() } },
+            { name: "MAPE", constructor: function () { return evaluation.newMeanAbsolutePercentageError() } },
+            { name: "R2", constructor: function () { return evaluation.newRSquareScore() } }
+        ]
+    }
+
+    // Create model instances
+    var mobisModel = Service.Mobis.Utils.model.newModel(modelConf);
+
+    mobisModel["sourceStore"] = modelConf.stores.sourceStore.name;
+    mobisModel["predictionStore"] = modelConf.stores.predictionStore.name;
+    mobisModel["evaluationStore"] = modelConf.stores.evaluationStore.name;
+
+    console.log("Initializing mobisModels...");
+    console.log("sourceStore: " + mobisModel.sourceStore);
+    console.log("predictionStore: " + mobisModel.predictionStore);
+    console.log("evaluationStore: " + mobisModel.evaluationStore);
+
+    //mobisModels.push(mobisModel);
+    mobisModels.put(mobisModel.sourceStore, mobisModel);
+});
 
 //////////////////////////// PREDICTION AND EVALUATION ////////////////////////////
-resampledStore.addStreamAggr({
-//qm.newStreamAggr({
+
+//resampledStore.addStreamAggr({
+resampledStores.forEach( function (store) {
+    store.addStreamAggr({
     name: "analytics",
     onAdd: function (rec) {
-        console.log("Working on rec: " + rec.DateTime.string);
-        printj(rec.toJSON(true));
+        console.log("\nWorking on rec from: " +  rec.$store.name + ". \nDateTime: "+ rec.DateTime.string + "\n");
+        //printj(rec.toJSON(true));
         //eval(breakpoint)
         //if (rec.$id % 100 == 0) {
         //    console.log("== 100 records down ==");
@@ -314,19 +267,26 @@ resampledStore.addStreamAggr({
         //var predictions = mobisModel.predict(rec);    
         //printj(predictions);
 
-        console.log("------ CONSOLE MODE -------");
-        eval(breakpoint);
+        mobisModel = mobisModels.get(resampledStore.name);
+        //console.log("mobisModel selected: " + mobisModel.sourceStore);
 
         mobisModel.predict(rec);
+        //var pred = mobisModel.predict(rec);
+        //printj(pred);
 
         mobisModel.update(rec);
 
         mobisModel.evaluate(rec);
+        //var eval = mobisModel.evaluate(rec);
+        //printj(eval);
 
         mobisModel.consoleReport(rec);
 
+        //console.log("\n\n\n------ CONSOLE MODE -------");
+        //eval(breakpoint);
     },
     saveJson: function () { }
+    })
 });
 
 //// Load Stores from log files
@@ -345,87 +305,93 @@ Service.Mobis.Utils.Data.importData(loadStores, targetStores, 10000);
 // DEBUGGING
 //eval(breakpoint)
 
-var visualize = function (htmlName, displayParam) {
-    viz.makeHighChartsTemplate(htmlName, 4);
-    var converterParams = {
-        timeField: "DateTime",
-        fields: [
-            { name: "Actual", get: function (rec) { return rec[displayParam[0].field.name] }, getTm: function (rec) { return rec.DateTime } },
-            { name: "Predicted", get: function (rec) { return rec.Predictions[0][displayParam[0].field.name] }, getTm: function (rec) { return rec.Predictions[0].PredictionTime } },
-        ]
-    }
-
-    ////if (fs.exists("flowSimple.html")) { fs.del("flowSimple.html"); }
-    ////viz.drawHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: localized linear regression models" }, chart: { type: 'spline', zoomType: 'x' }, });
-    ////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: localized linear regression models" }, chart: { type: 'spline', zoomType: 'x' }, });
-
-    viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), htmlName, { title: { text: "Predictions: 1h" }, chart: { type: 'spline', zoomType: 'x' }, colors: ['#74d8da', '#0a5a8c'] });
-
-    var converterParams = {
-        timeField: "DateTime",
-        fields: [
-            { name: "Actual", get: function (rec) { return rec[displayParam[0].field.name] }, getTm: function (rec) { return rec.DateTime } },
-            { name: "Predicted", get: function (rec) { return rec.Predictions[6][displayParam[0].field.name] }, getTm: function (rec) { return rec.Predictions[6].PredictionTime } },
-        ]
-    }
-
-    ////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: errors" }, chart: { type: 'spline', zoomType: 'x' }, });
-    viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), htmlName, { title: { text: "Predictions: 18h" }, chart: { type: 'spline', zoomType: 'x' }, colors: ['#74d8da', '#0a5a8c'] });
-
-    var getLatestEvalRec = function () {
-        var maxHorizon = horizons.indexOf(Math.max.apply(null, horizons));
-        var lastEvaluatedRecId = resampledStore.getStreamAggr(RecordBuffers[maxHorizon].name).val.oldest.$id;
-        return resampledStore[lastEvaluatedRecId]; //last record with evaluations for all horizons
-    }
-
-    //TODO: this could as well be automatized
-    var converterParams = {
-        fields: [
-            { name: displayParam[0].field.name, get: function (rec) { try { return rec.Evaluation[0][displayParam[0].field.name] } catch (err) { return null } } },
-            { name: displayParam[1].field.name, get: function (rec) { try { return rec.Evaluation[0][displayParam[1].field.name] } catch (err) { return null } } },
-            { name: displayParam[2].field.name, get: function (rec) { try { return rec.Evaluation[0][displayParam[2].field.name] } catch (err) { return null } } },
-        ]        
-    }
-    ////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: errors" }, chart: { type: 'spline', zoomType: 'x' }, });
-    viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterColumn(converterParams, toJSON(getLatestEvalRec(), 2)), htmlName,
-        {
-            title: { text: "Model Comparisons" }, chart: { type: 'column' }, xAxis: { categories: horizons, title: { text: 'Horizon' } },
-            yAxis: { min: 0, title: { text: 'MAE' } }, plotOptions: {
-                column: {
-                    pointPadding: 0.2, borderWidth: 0, dataLabels: {
-                        enabled: true, rotation: -90, align: 'left', x: 4, y: -10, format: '{point.y:.1f}'
-                    }
-                }
-            },
-        });
-
-    var converterParams = {
-        fields: [
-            { name: displayParam[0].field.name, get: function (rec) { try { return rec.Evaluation[3][displayParam[0].field.name] } catch (err) { return null } } },
-            { name: displayParam[1].field.name, get: function (rec) { try { return rec.Evaluation[0][displayParam[1].field.name] } catch (err) { return null } } },
-            { name: displayParam[2].field.name, get: function (rec) { try { return rec.Evaluation[0][displayParam[2].field.name] } catch (err) { return null } } },
-        ]
-    }
-    ////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: errors" }, chart: { type: 'spline', zoomType: 'x' }, });
-    viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterColumn(converterParams, toJSON(getLatestEvalRec(), 2)), htmlName,
-        {
-            title: { text: "Model Comparisons" }, chart: { type: 'column' }, xAxis: { categories: horizons, title: { text: 'Horizon' } },
-            yAxis: { min: 0, title: { text: 'R2' } }, plotOptions: {
-                column: {
-                    pointPadding: 0.2, borderWidth: 0, dataLabels: {
-                        enabled: true, rotation: -90, align: 'left', x: 4, y: -10, format: '{point.y:.3f}'
-                    }
-                }
-            },
-        });
+var getLatestEvalRec = function () {
+    var maxHorizon = horizons.indexOf(Math.max.apply(null, horizons));
+    var lastEvaluatedRecId = resampledStore.getStreamAggr(RecordBuffers[maxHorizon].name).val.oldest.$id;
+    return resampledStore[lastEvaluatedRecId]; //last record with evaluations for all horizons
 }
 
-//var htmlName = "Occupancy.html"
-var htmlName = modelConf.target.name + ".html";
-//var displayParam = modelConf.target.name; //TODO: this cannot work anymore. Update this part
-//var displayParam = "NumOfCars";
-var displayParams = modelConf.predictionFields
-visualize(htmlName, displayParams);
+//var visualize = function (htmlName, displayParam) {
+//    viz.makeHighChartsTemplate(htmlName, 4);
+//    var converterParams = {
+//        timeField: "DateTime",
+//        fields: [
+//            { name: "Actual", get: function (rec) { return rec[displayParam[0].field.name] }, getTm: function (rec) { return rec.DateTime } },
+//            { name: "Predicted", get: function (rec) { return rec.Predictions[0][displayParam[0].field.name] }, getTm: function (rec) { return rec.Predictions[0].PredictionTime } },
+//        ]
+//    }
+
+//    ////if (fs.exists("flowSimple.html")) { fs.del("flowSimple.html"); }
+//    ////viz.drawHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: localized linear regression models" }, chart: { type: 'spline', zoomType: 'x' }, });
+//    ////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: localized linear regression models" }, chart: { type: 'spline', zoomType: 'x' }, });
+
+//    viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), htmlName, { title: { text: "Predictions: 1h" }, chart: { type: 'spline', zoomType: 'x' }, colors: ['#74d8da', '#0a5a8c'] });
+
+//    var converterParams = {
+//        timeField: "DateTime",
+//        fields: [
+//            { name: "Actual", get: function (rec) { return rec[displayParam[0].field.name] }, getTm: function (rec) { return rec.DateTime } },
+//            { name: "Predicted", get: function (rec) { return rec.Predictions[6][displayParam[0].field.name] }, getTm: function (rec) { return rec.Predictions[6].PredictionTime } },
+//        ]
+//    }
+
+//    ////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: errors" }, chart: { type: 'spline', zoomType: 'x' }, });
+//    viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), htmlName, { title: { text: "Predictions: 18h" }, chart: { type: 'spline', zoomType: 'x' }, colors: ['#74d8da', '#0a5a8c'] });
+
+//    var getLatestEvalRec = function () {
+//        var maxHorizon = horizons.indexOf(Math.max.apply(null, horizons));
+//        var lastEvaluatedRecId = resampledStore.getStreamAggr(RecordBuffers[maxHorizon].name).val.oldest.$id;
+//        return resampledStore[lastEvaluatedRecId]; //last record with evaluations for all horizons
+//    }
+
+//    //TODO: this could as well be automatized
+//    var converterParams = {
+//        fields: [
+//            { name: displayParam[0].field.name, get: function (rec) { try { return rec.Evaluation[0][displayParam[0].field.name] } catch (err) { return null } } },
+//            { name: displayParam[1].field.name, get: function (rec) { try { return rec.Evaluation[0][displayParam[1].field.name] } catch (err) { return null } } },
+//            { name: displayParam[2].field.name, get: function (rec) { try { return rec.Evaluation[0][displayParam[2].field.name] } catch (err) { return null } } },
+//        ]        
+//    }
+//    ////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: errors" }, chart: { type: 'spline', zoomType: 'x' }, });
+//    viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterColumn(converterParams, toJSON(getLatestEvalRec(), 2)), htmlName,
+//        {
+//            title: { text: "Model Comparisons" }, chart: { type: 'column' }, xAxis: { categories: horizons, title: { text: 'Horizon' } },
+//            yAxis: { min: 0, title: { text: 'MAE' } }, plotOptions: {
+//                column: {
+//                    pointPadding: 0.2, borderWidth: 0, dataLabels: {
+//                        enabled: true, rotation: -90, align: 'left', x: 4, y: -10, format: '{point.y:.1f}'
+//                    }
+//                }
+//            },
+//        });
+
+//    var converterParams = {
+//        fields: [
+//            { name: displayParam[0].field.name, get: function (rec) { try { return rec.Evaluation[3][displayParam[0].field.name] } catch (err) { return null } } },
+//            { name: displayParam[1].field.name, get: function (rec) { try { return rec.Evaluation[0][displayParam[1].field.name] } catch (err) { return null } } },
+//            { name: displayParam[2].field.name, get: function (rec) { try { return rec.Evaluation[0][displayParam[2].field.name] } catch (err) { return null } } },
+//        ]
+//    }
+//    ////viz.drawHighChartsTimeSeries2(viz.highchartsConverterPro(converterParams, toJSON(resampledStore.tail(300), 2)), "flowSimple.html", { title: { text: "Flow predictions: errors" }, chart: { type: 'spline', zoomType: 'x' }, });
+//    viz.drawMultipleHighChartsTimeSeries(viz.highchartsConverterColumn(converterParams, toJSON(getLatestEvalRec(), 2)), htmlName,
+//        {
+//            title: { text: "Model Comparisons" }, chart: { type: 'column' }, xAxis: { categories: horizons, title: { text: 'Horizon' } },
+//            yAxis: { min: 0, title: { text: 'R2' } }, plotOptions: {
+//                column: {
+//                    pointPadding: 0.2, borderWidth: 0, dataLabels: {
+//                        enabled: true, rotation: -90, align: 'left', x: 4, y: -10, format: '{point.y:.3f}'
+//                    }
+//                }
+//            },
+//        });
+//}
+
+////var htmlName = "Occupancy.html"
+//var htmlName = modelConf.target.name + ".html";
+////var displayParam = modelConf.target.name; //TODO: this cannot work anymore. Update this part
+////var displayParam = "NumOfCars";
+//var displayParams = modelConf.predictionFields
+//visualize(htmlName, displayParams);
 
 //////////////////////////// ONLINE (REST) SERVICES ////////////////////////////
 // Query records
@@ -468,4 +434,17 @@ http.onGet("evaluation", function (req, resp) {
     var lastEvaluatedRec = resampledStore[lastEvaluatedRecId]; //last record with evaluations for all horizons
     var rec = toJSON(lastEvaluatedRec, depth);
     return http.jsonp(req, resp, rec)
+});
+
+// Resampled store with measurements
+// Example1: http://localhost:8080/MoreSensors/predictions
+// Example2: http://localhost:8080/MoreSensors/predictions?depth=1
+http.onGet("predictions", function (req, resp) {
+    var depth = (req.args.depth != null) ? 0 : req.arg.depth;
+    var recs = [];
+    trafficStores.forEach(function (store) {
+        //TODO: set aditional optional parameters like depth
+        recs.push(toJSON(store.last, depth));
+    })
+    return http.jsonp(req, resp, recs);
 });

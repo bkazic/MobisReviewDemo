@@ -57,7 +57,7 @@ createAvrgModels = function (targetFields) {
 //    return linregs;
 //};
 
-createLinRegModels = function (fields, horizons) {
+createLinRegModels = function (fields, horizons, ftrSpace) {
     // create set of linear regression models 
     var linregs = []; // this will be array of objects
     for (var field in fields) { // models for prediction fields
@@ -141,14 +141,16 @@ createErrorModels = function (fields, horizon, errMetrics) {
 model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, target, evalOffset, errorMetrics, predictionFields) {
 
     this.horizons = horizons; // TODO: I think I dont need this because the variable is seen allready from the input parameter
-    this.featureSpace = ftrSpace;
+    //this.featureSpace = ftrSpace;
+    var featureSpace = analytics.newFeatureSpace(ftrSpace);
+    this.featureSpace = featureSpace;
     this.target = target.name;
     targets = []; predictionFields.forEach(function (target) { targets.push(target.field.name) });
     this.targets = targets; // Not neceserelly
     var recordBuffers = createBuffers(horizons, store);
 
     this.locAvrgs = createAvrgModels(predictionFields);
-    this.linregs = createLinRegModels(predictionFields, horizons); 
+    this.linregs = createLinRegModels(predictionFields, horizons, featureSpace);
 
     errorModels = createErrorModels(predictionFields, horizons, errorMetrics);
 
@@ -180,7 +182,7 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
 
                     // Update models
                     avrVal.setVal(locAvrg.getVal(rec)) // Set avrVal that is used by ftrExtractor (avrVal.getVal())
-                    linreg.learn(ftrSpace.ftrVec(trainRec), targetVal); 
+                    linreg.learn(featureSpace.ftrVec(trainRec), targetVal);
                     linreg.updateCount++;
 
                 }
@@ -211,14 +213,15 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
             predictionRec.OriginalTime = rec.DateTime.string;
             predictionRec.PredictionTime = predTime.string;
             predictionRec.PredictionHorizon = RecordBuffers[horizon].horizon - 1;
+            predictionRec.UpdateCount = this.linregs[0][horizon][work][hour].updateCount;
 
-            for ( var predictionFieldIdx in predictionFields) {
+            for (var predictionFieldIdx in predictionFields) {
                 var linreg = this.linregs[predictionFieldIdx][horizon][work][hour];
                 var locAvrg = this.locAvrgs[predictionFieldIdx];
                 var predictionFieldName = predictionFields[predictionFieldIdx].field.name;
 
                 avrVal.setVal(locAvrg.getVal({ "DateTime": predTime }));
-                predictionRec[predictionFieldName] = linreg.predict(ftrSpace.ftrVec(rec));
+                predictionRec[predictionFieldName] = linreg.predict(featureSpace.ftrVec(rec));
             }
 
             // Add prediction record to predictions array
@@ -227,7 +230,6 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
             predictionStore.add(predictionRec);
             rec.addJoin("Predictions", predictionStore.last);
         };
-
         return predictionRecs;
     };
 
@@ -235,11 +237,16 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
     this.evaluate = function (rec) {
 
         if (rec.$id < evalOffset) return; // If condition is true, stop function here.
-        
+        var evaluationRecs = []; // Just for report
+
         for (horizon in horizons) {
 
             var trainRecId = rec.$store.getStreamAggr(RecordBuffers[horizon].name).val.oldest.$id;
             var trainRec = rec.$store[trainRecId]
+
+            var evalsRec = {}; // Just for report
+            evalsRec["Horizon"] = horizons[horizon]; // Just for report
+            evalsRec["Errors"] = []; // Just for report
 
             errorMetrics.forEach(function (errorMetric, metricIdx) {
                 var errRec = {};
@@ -255,12 +262,18 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
                     errRec[predictionFieldName] = errorModel.getError();
                 }
 
+                // Add prediction record to predictions array
+                evalsRec.Errors.push(errRec); // Just for report
+
                 // add errRec to Evaluation sore, and add join to Predictions store which is linked to Original store
                 evaluationStore.add(errRec);
                 trainRec.Predictions[horizon].addJoin("Evaluation", evaluationStore.last);
             })
-        }
-    }
+
+            evaluationRecs.push(evalsRec); // Just for report
+        };
+        return evaluationRecs;
+    };
 
     ///////////////// CONSOLE REPORT ///////////////// 
     this.consoleReport = function (rec) {
@@ -286,10 +299,12 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
 
             // Report current predictions in the console
             console.println("");
-            console.log("=== Predictions ===\n");
+            console.log("=== Predictions ===");
+            console.log("Predictions for Sensor ID: " + rec.measuredBy.Name);
+            console.log("Update count: " + trainRec.Predictions[horizon].UpdateCount + "\n")
             console.log("Working on rec: " + rec.DateTime.string);
             console.log("Prediction from: " + trainRec.Predictions[horizon].OriginalTime.string); // Same as trainRec.DateTime.string             
-            console.log("Prediction horizon: " + trainRec.Predictions[horizon].PredictionHorizon+"\n")
+            console.log("Prediction horizon: " + trainRec.Predictions[horizon].PredictionHorizon + "\n")
             //console.log("Target: " + rec[target.name]); // Same as rec[target.name]
             //console.log(target.name + ": " + trainRec.Predictions[horizon][target.name]);
             predictionFields.forEach(function (predField) {
@@ -309,8 +324,6 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
                     console.log("\t"+predFieldNm + ": " + errorValue);
                 });
             });
-            
-            //}
         }
     }
 };
@@ -318,7 +331,8 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
 exports.newModel = function (modelConf) {
 
     var horizons = (modelConf.predictionHorizons == null) ? 1 : modelConf.predictionHorizons;
-    var ftrSpace = modelConf.ftrSpace; // TODO: what to do if it is not defined (if it is null) ?????
+    //var ftrSpace = modelConf.ftrSpace; // TODO: what to do if it is not defined (if it is null) ?????
+    var ftrSpace = modelConf.featureSpace; // TODO: what to do if it is not defined (if it is null) ?????
     var store = modelConf.stores.sourceStore;
     var predictionStore = modelConf.stores.predictionStore;
     var evaluationStore = modelConf.stores.evaluationStore;

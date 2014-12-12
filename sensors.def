@@ -94,6 +94,7 @@
 		{ "name": "OriginalTime", "type": "datetime", "null": true }, //actual dateTime. When the prediction was made.
 	        { "name": "PredictionTime", "type": "datetime", "null": true }, //actual dateTime. Cannot be primary because they will overlap. But you can try latter, because it woul be usefull that we could query them by time.
 	        { "name": "PredictionHorizon", "type": "float", "null": true },
+		{ "name": "UpdateCount", "type": "float", "null": true},
 		//{ "name": "Target", "type": "float", "null": true },
 	        
 		{ "name": "NumOfCars", "type": "float", "null": true },

@@ -93,11 +93,17 @@ exports.createMeasurementStores = function (SensorsStore) {
     }
 
     var createStores = function (name) {
+
         name = name.replace("-", "_");
+
+        var trafficStoreNm = "trafficStore_" + name;
+        var resampledStoreNm = "resampledStore_" + name;
+        var evaluationStoreNm = "Evaluation_" + name;
+        var predictionStoreNm = "Predictions_" + name;
 
         var storeDef = [
         {
-            "name": "trafficStore_" + name,
+            "name": trafficStoreNm,
             "fields": [
                 { "name": "DateTime", "type": "datetime", "primary": true },
                 { "name": "NumOfCars", "type": "float", "null": true },
@@ -109,11 +115,11 @@ exports.createMeasurementStores = function (SensorsStore) {
             ],
             "joins": [
                 { "name": "measuredBy", "type": "field", "store": "CounterNode" },
-                { "name": "Predictions", "type": "index", "store": "Predictions" }
+                { "name": "Predictions", "type": "index", "store": predictionStoreNm }
             ]
         },
         {
-            "name": "resampledStore_" + name,
+            "name": resampledStoreNm,
             "fields": [
                 { "name": "DateTime", "type": "datetime", "primary": true },
                 { "name": "NumOfCars", "type": "float", "null": true },
@@ -124,11 +130,11 @@ exports.createMeasurementStores = function (SensorsStore) {
             ],
             "joins": [
                 { "name": "measuredBy", "type": "field", "store": "CounterNode" },
-                { "name": "Predictions", "type": "index", "store": "Predictions" }
+                { "name": "Predictions", "type": "index", "store": predictionStoreNm }
             ]
         },
         {
-            "name": "Evaluation_" + name,
+            "name": evaluationStoreNm,
             "fields": [
                 { "name": "Name", "type": "string", "null": true },
 
@@ -140,12 +146,13 @@ exports.createMeasurementStores = function (SensorsStore) {
             ]
         },
         {
-            "name": "Predictions_" + name,
+            "name": predictionStoreNm,
             "fields": [
                 { "name": "Name", "type": "string", "null": true },
                 { "name": "OriginalTime", "type": "datetime", "null": true },
                 { "name": "PredictionTime", "type": "datetime", "null": true },
                 { "name": "PredictionHorizon", "type": "float", "null": true },
+                { "name": "UpdateCount", "type": "float", "null": true},
 
                 { "name": "NumOfCars", "type": "float", "null": true },
                 { "name": "Gap", "type": "float", "null": true },
@@ -154,24 +161,24 @@ exports.createMeasurementStores = function (SensorsStore) {
                 { "name": "TrafficStatus", "type": "float", "null": true }
             ],
             "joins": [
-                { "name": "Evaluation", "type": "index", "store": "Evaluation" },
-                { "name": "Target", "type": "field", "store": "resampledStore" }
+                { "name": "Evaluation", "type": "index", "store": evaluationStoreNm },
+                { "name": "Target", "type": "field", "store": resampledStoreNm }
             ]
         }
         ];
         qm.createStore(storeDef);
 
         //add store to return object
-        //result.trafficStores.push("trafficStore_" + name);
-        //result.resampledStores.push("resampledStore_" + name);
-        //result.evaluationStores.push("Evaluation_" + name);
-        //result.predictionStores.push("Predictions_" + name);
+        //result.trafficStores.push(trafficStoreNm);
+        //result.resampledStores.push(resampledStoreNm);
+        //result.evaluationStores.push(evaluationStoreNm);
+        //result.predictionStores.push(predictionStoreNm);
 
         //add store to return object
-        result.trafficStores.push(qm.store("trafficStore_" + name));
-        result.resampledStores.push(qm.store("resampledStore_" + name));
-        result.evaluationStores.push(qm.store("Evaluation_" + name));
-        result.predictionStores.push(qm.store("Predictions_" + name));
+        result.trafficStores.push(qm.store(trafficStoreNm));
+        result.resampledStores.push(qm.store(resampledStoreNm));
+        result.evaluationStores.push(qm.store(evaluationStoreNm));
+        result.predictionStores.push(qm.store(predictionStoreNm));
     }
 
     SensorsStore.each(function (sensor) { createStores(sensor.Name) })
