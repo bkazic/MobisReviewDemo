@@ -169,8 +169,12 @@ var avrVal = Service.Mobis.Utils.helper.newDummyModel();
 //////////////////////////////// MORE AGREGATES //////////////////////////////////
 
 ///////////////// INITIALIZING SOME STUFF //////////////////
-horizons = [1, 3, 6, 9, 12, 15, 18] // if you have resampling na 1h
+//horizons = [1, 3, 6, 9, 12, 15, 18] // if you have resampling na 1h
 //horizons = [1, 6, 1*12, 3*12, 6*12, 9*12, 12*12, 15*12, 18*12] // if you hvae resampling na 5min
+horizons = [];
+for (var i = 1; i < 25; i++) {
+    horizons.push(i);
+}
 
 // Create hashtable for models
 var mobisModels = utilities.newHashTable();
@@ -222,7 +226,8 @@ resampledStores.forEach(function (store, idx) {
             evaluationOffset: 50, 
         },
 
-        predictionHorizons: [1, 3, 6, 9, 12, 15, 18],
+        //predictionHorizons: [1, 3, 6, 9, 12, 15, 18],
+        predictionHorizons: horizons,
 
         //recLinRegParameters: { "dim": ftrSpace.dim, "forgetFact": 1, "regFact": 10000 }, // Not used yet. //Have to think about it how to use this
         errorMetrics: [
@@ -236,17 +241,17 @@ resampledStores.forEach(function (store, idx) {
     // Create model instances
     var mobisModel = Service.Mobis.Utils.model.newModel(modelConf);
 
-    mobisModel["sourceStore"] = modelConf.stores.sourceStore.name;
-    mobisModel["predictionStore"] = modelConf.stores.predictionStore.name;
-    mobisModel["evaluationStore"] = modelConf.stores.evaluationStore.name;
+    mobisModel["sourceStore"] = modelConf.stores.sourceStore;
+    mobisModel["predictionStore"] = modelConf.stores.predictionStore;
+    mobisModel["evaluationStore"] = modelConf.stores.evaluationStore;
 
     console.log("Initializing mobisModels...");
-    console.log("sourceStore: " + mobisModel.sourceStore);
-    console.log("predictionStore: " + mobisModel.predictionStore);
-    console.log("evaluationStore: " + mobisModel.evaluationStore);
+    console.log("sourceStore: " + mobisModel.sourceStore.name);
+    console.log("predictionStore: " + mobisModel.predictionStore.name);
+    console.log("evaluationStore: " + mobisModel.evaluationStore.name);
 
     //mobisModels.push(mobisModel);
-    mobisModels.put(mobisModel.sourceStore, mobisModel);
+    mobisModels.put(mobisModel.sourceStore.name, mobisModel);
 });
 
 //////////////////////////// PREDICTION AND EVALUATION ////////////////////////////
@@ -298,12 +303,14 @@ var loadStores = [trafficLoadStore];
 //var targetStores = [trafficStore, weatherStore, eventLogsStore];
 var targetStores = [trafficStore];
 
-Service.Mobis.Utils.Data.importData(loadStores, targetStores, 10000);
-//Service.Mobis.Utils.Data.importData(loadStores, targetStores, 26000);
+Service.Mobis.Utils.Data.importData(loadStores, targetStores, 100);
+//Service.Mobis.Utils.Data.importData(loadStores, targetStores, 10000);
+//Service.Mobis.Utils.Data.importData(loadStores, targetStores, 50000);
 //Service.Mobis.Utils.Data.importData(loadStores, targetStores);
 
 // DEBUGGING
-//eval(breakpoint)
+console.log("Console mode...")
+eval(breakpoint)
 
 var getLatestEvalRec = function () {
     var maxHorizon = horizons.indexOf(Math.max.apply(null, horizons));
@@ -440,11 +447,38 @@ http.onGet("evaluation", function (req, resp) {
 // Example1: http://localhost:8080/MoreSensors/predictions
 // Example2: http://localhost:8080/MoreSensors/predictions?depth=1
 http.onGet("predictions", function (req, resp) {
-    var depth = (req.args.depth != null) ? 0 : req.arg.depth;
+    var depth = (req.args.depth == null) ? 0 : req.args.depth;
     var recs = [];
-    trafficStores.forEach(function (store) {
-        //TODO: set aditional optional parameters like depth
+    resampledStores.forEach(function (store) {
         recs.push(toJSON(store.last, depth));
     })
     return http.jsonp(req, resp, recs);
+});
+
+// Resampled store with measurements
+// Example1: http://localhost:8080/MoreSensors/prediction?id=0011_11
+http.onGet("prediction", function (req, resp) {
+    var id = null;
+    var model = null;
+    var rec = null;
+
+    // Get Id from input arguments
+    if (req.args.id != null) {
+        id = req.args.id;
+    } else {
+        resp.setStatusCode(400);
+        resp.send("Wrong argument.");
+    }
+
+    // Get model from Id
+    var key = "resampledStore_" + id;
+    if (mobisModels.contains(key)) {
+        model = mobisModels.get(key);
+        rec = toJSON(model.sourceStore.last, 1);
+    } else {
+        resp.setStatusCode(400);
+        resp.send("Wrong id!");
+    }
+
+    return http.jsonp(req, resp, rec);
 });
