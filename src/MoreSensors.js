@@ -303,8 +303,8 @@ var loadStores = [trafficLoadStore];
 //var targetStores = [trafficStore, weatherStore, eventLogsStore];
 var targetStores = [trafficStore];
 
-Service.Mobis.Utils.Data.importData(loadStores, targetStores, 100);
-//Service.Mobis.Utils.Data.importData(loadStores, targetStores, 10000);
+//Service.Mobis.Utils.Data.importData(loadStores, targetStores, 100);
+Service.Mobis.Utils.Data.importData(loadStores, targetStores, 10000);
 //Service.Mobis.Utils.Data.importData(loadStores, targetStores, 50000);
 //Service.Mobis.Utils.Data.importData(loadStores, targetStores);
 
@@ -459,6 +459,7 @@ http.onGet("predictions", function (req, resp) {
 // Example1: http://localhost:8080/MoreSensors/prediction?id=0011_11
 http.onGet("prediction", function (req, resp) {
     var id = null;
+    var horizon = null;
     var model = null;
     var rec = null;
 
@@ -479,6 +480,15 @@ http.onGet("prediction", function (req, resp) {
         resp.setStatusCode(400);
         resp.send("Wrong id!");
     }
+
+    // Get prediction horizon
+    if (req.args.horizon != null) {
+        horizon = parseInt(req.args.horizon);
+        var predictionIdx = model.horizons.indexOf(horizon);
+        if (predictionIdx != -1) {
+            rec = rec.Predictions[predictionIdx]
+        }
+    } 
 
     return http.jsonp(req, resp, rec);
 });
