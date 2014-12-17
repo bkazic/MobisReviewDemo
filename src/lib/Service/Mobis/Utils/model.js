@@ -279,8 +279,9 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
     this.consoleReport = function (rec) {
 
         if (rec.$id < evalOffset) return; // If condition is true, stop function here.
+        var store = rec.$store;
 
-        if (resampledStore[resampledStore.length - 1].DateTime.day !== resampledStore[resampledStore.length - 2].DateTime.day) {
+        if (store[store.length - 1].DateTime.day !== store[store.length - 2].DateTime.day) {
             console.println("");
             console.log("\n==================================\n=== REC: " + rec.DateTime.string + " ===\n==================================");
         }
@@ -291,16 +292,16 @@ model = function (horizons, ftrSpace, store, predictionStore, evaluationStore, t
             var trainRec = rec.$store[trainRecId]
 
             // Only one report per day
-            var print = resampledStore[resampledStore.length - 1].DateTime.day !== resampledStore[resampledStore.length - 2].DateTime.day;
+            var print = store[store.length - 1].DateTime.day !== store[store.length - 2].DateTime.day;
             if (!print) return;
-            if (resampledStore[trainRecId].Predictions[horizon] == null) return;
-            if (resampledStore[trainRecId].Predictions[horizon].Evaluation[0] == null) return;
-            //if (print && resampledStore[trainRecId].Predictions[horizon] !== null && resampledStore[trainRecId].Predictions[horizon].Evaluation[0] !== null) {
+            if (store[trainRecId].Predictions[horizon] == null) return;
+            if (store[trainRecId].Predictions[horizon].Evaluation[0] == null) return;
+            //if (print && store[trainRecId].Predictions[horizon] !== null && store[trainRecId].Predictions[horizon].Evaluation[0] !== null) {
 
             // Report current predictions in the console
             console.println("");
             console.log("=== Predictions ===");
-            console.log("Predictions for Sensor ID: " + rec.measuredBy.Name);
+            //console.log("Predictions for Sensor ID: " + rec.measuredBy.Name);
             console.log("Update count: " + trainRec.Predictions[horizon].UpdateCount + "\n")
             console.log("Working on rec: " + rec.DateTime.string);
             console.log("Prediction from: " + trainRec.Predictions[horizon].OriginalTime.string); // Same as trainRec.DateTime.string             

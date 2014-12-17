@@ -45,6 +45,7 @@ qm.load.jsonFile(CounterNode, "./sandbox/" + process.scriptNm + "/countersNodes.
 var testStore = Service.Mobis.Utils.Stores.createNewTrafficStore("Test");
 var stores = Service.Mobis.Utils.Stores.createMeasurementStores(CounterNode);
 
+// Arrays with all stores
 trafficStores = stores.trafficStores;
 resampledStores = stores.resampledStores;
 evaluationStores = stores.evaluationStores;
@@ -53,23 +54,23 @@ predictionStores = stores.predictionStores;
 ///////////////////// PREPROCESSING FOR TRAFFIC DATA SOURCE /////////////////////
 
 // Replaces incorect speed values, with avr value
-trafficStore.addStreamAggr({
-    name: "setStores",
-    onAdd: function (rec) {
-        // Defining variables for stores, acording to rec origin
-        //trafficStore = qm.store(rec.measuredBy.Name);
-        //if (rec == null) return;
-        id = rec.measuredBy.Name.replace("-", "_");
-        trafficStore = qm.store("trafficStore_" + id);
-        Evaluation = qm.store("Evaluation_" + id);
-        Predictions = qm.store("Predictions_" + id);
-        resampledStore = qm.store('resampledStore_' + id);
+//trafficStore.addStreamAggr({
+//    name: "setStores",
+//    onAdd: function (rec) {
+//        // Defining variables for stores, acording to rec origin
+//        //trafficStore = qm.store(rec.measuredBy.Name);
+//        //if (rec == null) return;
+//        id = rec.measuredBy.Name.replace("-", "_");
+//        trafficStore = qm.store("trafficStore_" + id);
+//        Evaluation = qm.store("Evaluation_" + id);
+//        Predictions = qm.store("Predictions_" + id);
+//        resampledStore = qm.store('resampledStore_' + id);
 
-        // Moving rec to appropriate store
-        trafficStore.add(rec.toJSON(true));
-    },
-    saveJson: function () { }
-});
+//        // Moving rec to appropriate store
+//        trafficStore.add(rec.toJSON(true));
+//    },
+//    saveJson: function () { }
+//});
 
 ///////////////////// PREPROCESSING FOR TRAFFIC DATA SOURCE /////////////////////
 // Replaces incorect speed values, with avr value
@@ -109,7 +110,10 @@ resampledStores.forEach( function (store) {
     store.addStreamAggr({
     name: "addJoinsBack",
     onAdd: function (rec) {
-        rec.addJoin("measuredBy", trafficStore.last.measuredBy);
+        // TODO: fix resampler and joins. Most elegant would be, so that resampler preserves joins.
+        var sensorId = rec.$store.name.slice(-7) // Get id to find orinigal store
+        var originalStore = qm.store("trafficStore_" + id);
+        rec.addJoin("measuredBy", originalStore.last.measuredBy);
     },
     saveJson: function () { }
     });
@@ -177,7 +181,8 @@ for (var i = 1; i < 25; i++) {
 }
 
 // Create hashtable for models
-var mobisModels = utilities.newHashTable();
+//var mobisModels = utilities.newHashTable();
+var mobisModels = {};
 
 resampledStores.forEach(function (store, idx) {
 
@@ -250,8 +255,8 @@ resampledStores.forEach(function (store, idx) {
     console.log("predictionStore: " + mobisModel.predictionStore.name);
     console.log("evaluationStore: " + mobisModel.evaluationStore.name);
 
-    //mobisModels.push(mobisModel);
-    mobisModels.put(mobisModel.sourceStore.name, mobisModel);
+    //mobisModels.put(mobisModel.sourceStore.name, mobisModel);
+    mobisModels[mobisModel.sourceStore.name] = mobisModel;
 });
 
 //////////////////////////// PREDICTION AND EVALUATION ////////////////////////////
@@ -272,8 +277,11 @@ resampledStores.forEach( function (store) {
         //var predictions = mobisModel.predict(rec);    
         //printj(predictions);
 
-        mobisModel = mobisModels.get(resampledStore.name);
-        //console.log("mobisModel selected: " + mobisModel.sourceStore);
+        //mobisModel = mobisModels.get(rec.$store.name);
+        mobisModel = mobisModels[rec.$store.name];
+        //mobisModel = mobisModels.get(resampledStore.name);
+        console.log("mobisModel selected: " + mobisModel.sourceStore.name);
+        //eval(breakpoint)
 
         mobisModel.predict(rec);
         //var pred = mobisModel.predict(rec);
@@ -301,7 +309,7 @@ Service.Mobis.Utils.Stores.loadStores();
 //var loadStores = [trafficLoadStore, weatherLoadStore, eventLogsLoadStore];
 var loadStores = [trafficLoadStore];
 //var targetStores = [trafficStore, weatherStore, eventLogsStore];
-var targetStores = [trafficStore];
+var targetStores = [trafficStores];
 
 //Service.Mobis.Utils.Data.importData(loadStores, targetStores, 100);
 Service.Mobis.Utils.Data.importData(loadStores, targetStores, 10000);
@@ -409,36 +417,70 @@ http.onGet("query", function (req, resp) {
     return http.jsonp(req, resp, recs);
 });
 
-http.onGet("resampledStore", function (req, resp) {
-    var store = qm.store("resampledStore");
-    var depth = 0;
-    depth = (req.args.printJoins == "true") ? 1 : 0;
-    if (req.args.depth != null) { depth = req.args.depth; }
-    // convert to json
-    var recs = toJSON(store.recs, depth);
-    return http.jsonp(req, resp, recs);
-});
+//http.onGet("resampledStore", function (req, resp) {
+//    var store = qm.store("resampledStore");
+//    var depth = 0;
+//    depth = (req.args.printJoins == "true") ? 1 : 0;
+//    if (req.args.depth != null) { depth = req.args.depth; }
+//    // convert to json
+//    var recs = toJSON(store.recs, depth);
+//    return http.jsonp(req, resp, recs);
+//});
 
 // Resampled store with measurements
 // Example1: http://localhost:8080/MoreParamterPredictions/demo No predictions are seen.
 // Example2: http://localhost:8080/MoreParamterPredictions/demo?printJoins=true With predictions. (Optional parameter that sets )
 // Example3: http://localhost:8080/MoreParamterPredictions/demo?printJoins=true&depth=2 With evalueations.
 http.onGet("demo", function (req, resp) {
-    var store = qm.store("resampledStore");
+    //var store = qm.store("resampledStore");
+    var store = resampledStores[0];
     var depth = 0;
     depth = (req.args.printJoins == "true") ? 1 : 0;
     if (req.args.depth != null) { depth = req.args.depth; }
+
+    // If id is given, find that store.
+    if (req.args.id != null) {
+        var id = req.args.id;
+        id = id.replace("-", "_"); // Just in case..
+        // Get store from Id
+        var key = "resampledStore_" + id;
+        if (mobisModels.hasOwnProperty(key)) {
+            model = mobisModels[key];
+            store = model.sourceStore;
+        } else {
+            resp.setStatusCode(400);
+            resp.send("ERROR: Wrong id!");
+        }
+    }
+    
     // convert to json
     var recs = toJSON(store.tail(100), depth);
     return http.jsonp(req, resp, recs);
 });
 
 http.onGet("evaluation", function (req, resp) {
+    var store = resampledStores[0];
     var depth = 2;
     if (req.args.depth != null) { depth = req.args.depth; }
     var maxHorizon = horizons.indexOf(Math.max.apply(null, horizons));
-    var lastEvaluatedRecId = resampledStore.getStreamAggr(RecordBuffers[maxHorizon].name).val.oldest.$id;
-    var lastEvaluatedRec = resampledStore[lastEvaluatedRecId]; //last record with evaluations for all horizons
+
+    // If id is given, find that store.
+    if (req.args.id != null) {
+        var id = req.args.id;
+        id = id.replace("-", "_"); // Just in case..
+        // Get store from Id
+        var key = "resampledStore_" + id;
+        if (mobisModels.hasOwnProperty(key)) {
+            model = mobisModels[key];
+            store = model.sourceStore;
+        } else {
+            resp.setStatusCode(400);
+            resp.send("ERROR: Wrong id!");
+        }
+    }
+
+    var lastEvaluatedRecId = store.getStreamAggr(RecordBuffers[maxHorizon].name).val.oldest.$id;
+    var lastEvaluatedRec = store[lastEvaluatedRecId]; //last record with evaluations for all horizons
     var rec = toJSON(lastEvaluatedRec, depth);
     return http.jsonp(req, resp, rec)
 });
@@ -466,19 +508,20 @@ http.onGet("prediction", function (req, resp) {
     // Get Id from input arguments
     if (req.args.id != null) {
         id = req.args.id;
+        id = id.replace("-", "_"); // Just in case..
     } else {
         resp.setStatusCode(400);
-        resp.send("Wrong argument.");
+        resp.send("ERROR: Wrong argument.");
     }
 
     // Get model from Id
     var key = "resampledStore_" + id;
-    if (mobisModels.contains(key)) {
-        model = mobisModels.get(key);
+    if (mobisModels.hasOwnProperty(key)) {
+        model = mobisModels[key];
         rec = toJSON(model.sourceStore.last, 1);
     } else {
         resp.setStatusCode(400);
-        resp.send("Wrong id!");
+        resp.send("ERROR: Wrong id!");
     }
 
     // Get prediction horizon

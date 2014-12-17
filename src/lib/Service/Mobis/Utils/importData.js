@@ -1,3 +1,17 @@
+// Import data from different stores to various stores according to timestamp
+
+// Used if traffic record has to be saved to different stores --> every rec to its own store
+var saveToDifferentTrafficStores = function (rec) {
+    id = rec.measuredBy.Name.replace("-", "_");
+    trafficStore = qm.store("trafficStore_" + id);
+
+    //console.log("Getting rec with id: " + id);
+    //console.log("Saving it to store: " + trafficStore.name);
+
+    // Moving rec to appropriate store
+    trafficStore.add(rec.toJSON(true));
+}
+
 exports.importData = function (inStores, outStores, limit) {
     var loadStores = inStores;
     var targetStores = outStores;
@@ -66,21 +80,21 @@ exports.importData = function (inStores, outStores, limit) {
         var val = rec.toJSON(true);
         delete val.$id;
         //val.StringDateTime = rec[dateTimeFields[lowestRecIdx]].string; //have to add string version because, string fields can be uniqe. Thisway I delete duplicates.
-        targetStores[lowestRecIdx].add(val);
+
+        //targetStores[lowestRecIdx].add(val);
 
         // TODO:
-        /*
+        
         var store = targetStores[lowestRecIdx];
         if (store instanceof Array) {
-            // TODO some function that will store rec to correct rec from array
+            saveToDifferentTrafficStores(rec);
         } else {
             targetStores[lowestRecIdx].add(val);
         }
-        */
 
         //console.log("\nLast resampled rec: " + JSON.stringify(resampledStore.last));
         currRecIdxs[lowestRecIdx]++
-        //console.start()
+       
     }
 }
 

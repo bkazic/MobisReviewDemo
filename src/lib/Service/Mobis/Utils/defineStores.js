@@ -48,7 +48,6 @@ exports.defineStores = function () {
     // Creating Store for measurements
     createTrafficStore("trafficLoadStore");
     createTrafficStore("trafficStore", [{ "name": "Replaced", "type": "bool", "null": true, "default": false }]);
-
     
     //TODO: Modify this store!!!!!!!!!!!!!!
 
