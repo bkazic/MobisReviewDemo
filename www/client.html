@@ -34,13 +34,25 @@
 
            
            // PARAMETERS: displayParam, id, numOfRecs
-           var updatingGraph = function (dataLink, displayParam, sensorId, numOfHistRecs) {
+           var updatingGraph = function (dataLink, displayParam, sensorId, numOfHistRecs, optionalOverrideParams) {
                var chart;
                //var dataLink = "http://localhost:8080/TrafficPrediction/makeOnlineGraph"
                //var updateDataLink = "http://localhost:8080/TrafficPrediction/makeOnlineGraph?displayParam=NumOfCars&id=0011_11&numOfRecs=1"
                var updateDataLink = dataLink + "?displayParam=" + displayParam + "&id=" + sensorId + "&numOfRecs=1";
                //var histDataLink = "http://localhost:8080/TrafficPrediction/makeOnlineGraph?displayParam=NumOfCars&id=0011_11&numOfRecs=120"
                var histDataLink = dataLink + "?displayParam=" + displayParam + "&id=" + sensorId + "&numOfRecs=" + numOfHistRecs;
+
+               // setup override params
+               var overrideParams = {
+                   title: { text: displayParam },
+                   chart: { type: 'spline', zoomType: 'x', animation: Highcharts.svg, marginRight: 20, events: { load: function () { chart = this; onLoad() } } },
+                   series: [{ name: 'Actual', data: [] }, { name: 'Predicted', type: 'spline', data: [] }],
+                   xAxis: { type: 'datetime', dateTimeLabelFormats: { month: '%e. %b', year: '%b' }, title: { text: 'Time' } },
+                   yAxis: [{ title: { text: 'Val' } }, ],
+                   tooltip: { headerFormat: '<b>{series.name}</b><br>', pointFormat: '{point.x:%Y-%m-%d %H:%M:%S}<br/>{point.y:.2f}' },
+               }
+               //if (optionalOverrideParams != null && optionalOverrideParams.yAxis != null) overrideParams.yAxis.push(optionalOverrideParams.yAxis);
+               if (optionalOverrideParams != null && optionalOverrideParams.yAxis != null) overrideParams.yAxis = optionalOverrideParams.yAxis;
 
                var onLoad = function () {
                    // set up the updating of the chart each second
@@ -64,16 +76,6 @@
                    }, refreshInterval);
                }
 
-               // setup override params
-               var overrideParams = {
-                   title: { text: displayParam },
-                   chart: { type: 'spline', zoomType: 'x', animation: Highcharts.svg, marginRight: 20, events: { load: function () { chart = this; onLoad() } } },
-                   series: [{ name: 'Actual', data: [] }, { name: 'Predicted', type: 'spline', data: [] }],
-                   xAxis: { type: 'datetime', dateTimeLabelFormats: { month: '%e. %b', year: '%b' }, title: { text: 'Time' } },
-                   yAxis: [{ title: { text: 'Val' } }, ],
-                   tooltip: { headerFormat: '<b>{series.name}</b><br>', pointFormat: '{point.x:%Y-%m-%d %H:%M:%S}<br/>{point.y:.2f}' },
-               }
-
                //// Plot with no initial data
                //data = overrideParams.series;
                //visualize.highChartsPlot(data, overrideParams, 'displayParam');
@@ -95,9 +97,9 @@
            var numOfHistRecs = 120;
 
            $(document).ready(function (e) {
-               updatingGraph(dataLink, displayParam, sensorId, numOfHistRecs);
+               updatingGraph(dataLink, "NumOfCars", sensorId, numOfHistRecs);
+               updatingGraph(dataLink, "Speed", sensorId, numOfHistRecs, { "yAxis": { min: -50, max: 200 } });
                updatingGraph(dataLink, "Occupancy", sensorId, numOfHistRecs);
-               updatingGraph(dataLink, "Speed", sensorId, numOfHistRecs);
            })
 
     </script>
@@ -105,8 +107,8 @@
 <body>
     <div class="container" id="graph">
         <div id="NumOfCars" style="min-width: 310px; height: 400px; margin: 0 auto"></div><br/>
-        <div id="Occupancy" style="min-width: 310px; height: 400px; margin: 0 auto"></div><br/>
         <div id="Speed" style="min-width: 310px; height: 400px; margin: 0 auto"></div><br/>
+        <div id="Occupancy" style="min-width: 310px; height: 400px; margin: 0 auto"></div><br/>
     </div>
 </body>
 </html>
