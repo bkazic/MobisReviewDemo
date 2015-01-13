@@ -265,7 +265,7 @@ resampledStores.forEach( function (store) {
     store.addStreamAggr({
     name: "analytics",
     onAdd: function (rec) {
-        console.log("\nWorking on rec from: " +  rec.$store.name + ". \nDateTime: "+ rec.DateTime.string + "\n");
+        //console.log("\nWorking on rec from: " +  rec.$store.name + ". \nDateTime: "+ rec.DateTime.string + "\n");
         //printj(rec.toJSON(true));
         //eval(breakpoint)
         //if (rec.$id % 100 == 0) {
@@ -279,7 +279,7 @@ resampledStores.forEach( function (store) {
         //mobisModel = mobisModels.get(rec.$store.name);
         mobisModel = mobisModels[rec.$store.name];
         //mobisModel = mobisModels.get(resampledStore.name);
-        console.log("mobisModel selected: " + mobisModel.sourceStore.name);
+        //console.log("mobisModel selected: " + mobisModel.sourceStore.name);
         //eval(breakpoint)
 
         mobisModel.predict(rec);
@@ -292,7 +292,7 @@ resampledStores.forEach( function (store) {
         //var eval = mobisModel.evaluate(rec);
         //printj(eval);
 
-        mobisModel.consoleReport(rec);
+        //mobisModel.consoleReport(rec);
 
         //console.log("\n\n\n------ CONSOLE MODE -------");
         //eval(breakpoint);
@@ -434,7 +434,7 @@ http.onGet("makeOfflineGraph", function (req, resp) {
     console.log("htmlName: " + htmlName)
 
     var displayParam = (req.args.displayParam != null) ? req.args.displayParam[0] : "NumOfCars";
-    console.log("displayParam: " + displayParam)
+    //console.log("displayParam: " + displayParam)
 
     var id = (req.args.id != null) ? req.args.id[0] : "0011_11";
     id = id.replace("-", "_"); // Just in case..
@@ -444,7 +444,7 @@ http.onGet("makeOfflineGraph", function (req, resp) {
     visualize(htmlName, displayParam, source);
 
     var msg = "Ok.";
-    console.log(msg);
+    //console.log(msg);
     return http.jsonp(req, resp, msg);
 });
 
@@ -457,15 +457,15 @@ http.onGet("makeOfflineGraph", function (req, resp) {
 http.onGet("makeOnlineGraph", function (req, resp) {
 
     var displayParam = (req.args.displayParam != null) ? req.args.displayParam[0] : "NumOfCars";
-    console.log("displayParam: " + displayParam)
+    //console.log("displayParam: " + displayParam)
 
     var id = (req.args.id != null) ? req.args.id[0] : "0011_11";
     id = id.replace("-", "_"); // Just in case..
     var source = "resampledStore_" + id;
-    console.log("source: " + source)
+    //console.log("source: " + source)
 
     var numOfRecs = (req.args.numOfRecs != null) ? req.args.numOfRecs[0] : 120; //default record size to return is 30
-    console.log("numOfRecs: " + numOfRecs);
+    //console.log("numOfRecs: " + numOfRecs);
 
     var store = qm.store(source);
 
