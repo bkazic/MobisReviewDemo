@@ -58,7 +58,6 @@
                    // set up the updating of the chart each second
                    var series = chart.series;
                    var maxSamples = numOfHistRecs; // max number of samples before graph starts to shift
-                   var count = 0; // counter for how many points have been drawm
                    var lastTS = 0; // initialize timestamp value
                    var refreshInterval = 1000 // refresh rate for updating (in ms)
                    setInterval(function () {
@@ -66,9 +65,8 @@
                            var rec = data[0].data[0];
                            var rec2 = data[1].data[0];
                            if (rec[0] != lastTS) { // If new recs timestamp is different than the last one
-                               count++;
-                               series[0].addPoint(rec, false, (count >= maxSamples)); //do not shift until count is bigger than maxSamples
-                               series[1].addPoint(rec2, true, (count >= maxSamples)); //do not shift until count is bigger than maxSamples
+                               series[0].addPoint(rec, false, (chart.series[0].data.length >= maxSamples)); //do not shift until count is bigger than maxSamples
+                               series[1].addPoint(rec2, true, (chart.series[1].data.length >= maxSamples)); //do not shift until count is bigger than maxSamples
                                lastTS = rec[0]
                            }
                            //console.log("Got new data:" + rec + ", " + rec2)
