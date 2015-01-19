@@ -4,8 +4,9 @@ var CounterNode = qm.store("CounterNode");
 var trafficLoadStore = qm.store('trafficLoadStore');
 var trafficStore = qm.store('trafficStore');
 
-qm.load.jsonFile(CounterNode, "./sandbox/" + process.scriptNm + "/countersNodes.txt"); 
-qm.load.jsonFile(trafficLoadStore, "./sandbox/" + process.scriptNm + "/measurements_9_sens_3_mon.txt");
+qm.load.jsonFile(CounterNode, "./sandbox/" + process.scriptNm + "/countersNodes.txt");
+qm.load.jsonFile(trafficLoadStore, "./sandbox/" + process.scriptNm + "/measurements_9_sens.txt");
+//qm.load.jsonFile(trafficLoadStore, "./sandbox/" + process.scriptNm + "/measurements_9_sens_3_mon.txt");
 //qm.load.jsonFile(trafficLoadStore, "./sandbox/" + process.scriptNm + "/measurements_3_mon_0011_11.txt");
 
 //var sendData = function (_data) {
@@ -74,7 +75,11 @@ var importData = function (inStores, outStores, limit) {
 
     var respCallBack = function (resp) {
         var lowestRecIdx = findLowestRecIdx(currRecIdxs);
-        var rec = loadStores[lowestRecIdx].recs[currRecIdxs[lowestRecIdx]]
+        try {
+            var rec = loadStores[lowestRecIdx].recs[currRecIdxs[lowestRecIdx]]
+        } catch (err) {
+            throw "Reached to the end"
+        }
         //var val = rec.toJSON(true);
 
         var val = rec.toJSON();
@@ -99,6 +104,7 @@ var importData = function (inStores, outStores, limit) {
         if (limit != null) {
             if (count > limit) {
                 console.log("Reached count limit at " + limit);
+                throw "Reached count limit at " + limit
                 return;
             } else count++
         }

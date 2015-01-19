@@ -316,8 +316,8 @@ Service.Mobis.Utils.Data.importData(loadStores, targetStores, 10000);
 //Service.Mobis.Utils.Data.importData(loadStores, targetStores);
 
 // DEBUGGING
-console.log("Console mode...")
-eval(breakpoint)
+//console.log("Console mode...")
+//eval(breakpoint)
 
 var getLatestEvalRec = function () {
     var maxHorizon = horizons.indexOf(Math.max.apply(null, horizons));
